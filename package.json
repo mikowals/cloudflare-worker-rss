@@ -1,0 +1,22 @@
+{
+  "private": true,
+  "name": "my-app",
+  "version": "1.0.0",
+  "description": "A template for kick starting a Cloudflare Workers project",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "format": "prettier --write '**/*.{js,css,json,md}'"
+  },
+  "author": "mikowals <mikowals@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "prettier": "^1.18.2"
+  },
+  "dependencies": {
+    "lodash": "^4.17.20",
+    "lokijs": "^1.5.11",
+    "rss-parser": "^3.9.0",
+    "uuid": "^8.3.2"
+  }
+}
