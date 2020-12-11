@@ -14,9 +14,16 @@
     "prettier": "^1.18.2"
   },
   "dependencies": {
+    "apollo-server": "^2.19.0",
+    "apollo-server-cloudflare": "^2.19.0",
+    "cheerio": "^1.0.0-rc.3",
     "lodash": "^4.17.20",
+    "lodash.assignin": "^4.2.0",
+    "lodash.unescape": "^4.0.1",
     "lokijs": "^1.5.11",
     "rss-parser": "^3.9.0",
+    "sanitize-html": "^2.2.0",
+    "trim-html": "^0.1.9",
     "uuid": "^8.3.2"
   }
 }
