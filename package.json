@@ -3,7 +3,7 @@
   "name": "my-app",
   "version": "1.0.0",
   "description": "A template for kick starting a Cloudflare Workers project",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "format": "prettier --write '**/*.{js,css,json,md}'"
@@ -14,11 +14,15 @@
     "prettier": "^1.18.2"
   },
   "dependencies": {
-    "apollo-server": "^2.19.0",
     "apollo-server-cloudflare": "^2.19.0",
-    "cheerio": "^1.0.0-rc.3",
+    "dataloader": "^2.0.0",
+    "graphql": "^15.4.0",
     "lodash": "^4.17.20",
     "lodash.assignin": "^4.2.0",
+    "lodash.escape": "^4.0.1",
+    "lodash.findwhere": "^3.1.0",
+    "lodash.groupby": "^4.6.0",
+    "lodash.pick": "^4.4.0",
     "lodash.unescape": "^4.0.1",
     "lokijs": "^1.5.11",
     "rss-parser": "^3.9.0",
