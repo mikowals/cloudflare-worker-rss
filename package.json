@@ -16,6 +16,7 @@
   "dependencies": {
     "apollo-server-cloudflare": "^2.19.0",
     "dataloader": "^2.0.0",
+    "feedparser": "^2.2.10",
     "graphql": "^15.4.0",
     "lodash": "^4.17.20",
     "lodash.assignin": "^4.2.0",

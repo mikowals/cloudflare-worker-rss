@@ -3,8 +3,7 @@ import {
   articles,
   feeds,
   users,
-  maybeLoadDbFromWorkerKV,
-  maybeSeedDbFeeds,
+  maybeLoadDb,
   saveCollectionToKV
 } from './database';
 import escape from 'lodash.escape';
@@ -29,11 +28,10 @@ addEventListener('fetch', event => {
 })
 
 async function handleRequest({request, waitUntil}) {
-  await maybeLoadDbFromWorkerKV();
+  await maybeLoadDb();
   const url = new URL(request.url);
   switch (url.pathname) {
   case "/pollFeeds":
-    maybeSeedDbFeeds();
     console.time("fetchArticles");
     const newArticles = await fetchArticles(feeds.find());
     let itemsInserted = 0;

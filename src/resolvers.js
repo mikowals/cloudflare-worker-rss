@@ -1,5 +1,5 @@
 import { articles, feeds } from './database';
-import { addFeed } from './fetch-articles';
+import { addFeed } from './database';
 import pick from 'lodash.pick';
 import { countLoader } from './loaders';
 
@@ -35,7 +35,7 @@ export const resolvers = {
     // Rewrite so that feed is only removed per user
     removeFeed(parent, {id}, context, info) {
       articles.findAndRemove({feedId: id});
-      feeds.remove({_id: id});
+      feeds.findAndRemove({_id: id});
       return {_id: id};
     },
 

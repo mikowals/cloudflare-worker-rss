@@ -21,11 +21,11 @@ export const fetchFeed = async ({url, _id, lastModified, etag}) => {
   return fetch(new Request(url, {headers}));
 }
 
-export const readItems = async ([feed, httpPromise]) => {
+export const readItems = async (feed) => {
   if (! feed._id) {
     throw new Error("readItems requires feed with '_id'.")
   }
-  const httpResponse = await httpPromise;
+  const httpResponse = await feed.request;
   const rssString = await httpResponse.text();
   console.timeEnd(feed.url);
   if (httpResponse.status !== 200) {
@@ -34,19 +34,23 @@ export const readItems = async ([feed, httpPromise]) => {
     return feed;
   }
 
-  let feedResult = await parser.parseString(rssString);
+  let updatedFeed = await parser.parseString(rssString);
   //console.log(JSON.stringify(feed.items[0]));
-  feedResult.etag = httpResponse.headers.etag
-  feedResult.lastModified = httpResponse.headers["last-modified"];
-  feedResult.url = feed.url;
-  feedResult._id = feed._id;
-  return feedResult;
+  updatedFeed.etag = httpResponse.headers.etag
+  updatedFeed.lastModified = httpResponse.headers["last-modified"];
+  // Update url in case it has been redirected.
+  updatedFeed.url = updatedFeed.feedUrl;
+  updatedFeed._id = feed._id;
+  return updatedFeed;
 };
 
 export const fetchArticles = async (feeds) => {
-  const feedsWithResponses = feeds.map(f => [f, fetchFeed(f)]);
-  const feedsWithArticles = await Promise.all(feedsWithResponses.map(readItems));
-  return flatMap(feedsWithArticles, prepareArticlesForDB);
+  const feedsWithRequests = feeds.map(f => {
+    f.request = fetchFeed(f);
+    return f;
+  })
+  const updatedFeeds = await Promise.all(feedsWithRequests.map(readItems));
+  return flatMap(updatedFeeds, prepareArticlesForDB);
 };
 
 export const prepareArticlesForDB = (feed) => {
@@ -60,9 +64,9 @@ export const prepareArticlesForDB = (feed) => {
 }
 
 const removeOldArticles = (articles, daysOld) => {
-  let twoDaysAgo = new Date();
-  twoDaysAgo.setDate(twoDaysAgo.getDate() - daysOld);
+  let dayLimit = new Date();
+  dayLimit.setDate(dayLimit.getDate() - daysOld);
   return filter(articles, (value) => {
-    return value.date >= twoDaysAgo;
+    return value.date >= dayLimit;
   });
 };
