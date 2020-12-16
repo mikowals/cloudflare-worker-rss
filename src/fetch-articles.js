@@ -2,6 +2,7 @@ import Parser from 'rss-parser';
 import filter from 'lodash.filter'
 import flatMap from 'lodash.flatmap';
 import { Article } from './article';
+import { yesterday } from './utils';
 
 let parser = new Parser({
   customFields: {
@@ -71,11 +72,7 @@ export const readItems = async (feed) => {
     return feed;
   }
   let oneDayAgo = new Date().setDate(new Date().getDate() - 1);
-  const keepLimitDate =
-    oneDayAgo < feed.lastFetchedDate ?
-    feed.lastFetchedDate :
-    oneDayAgo;
-  let dateHandler = new PubdateHandler(keepLimitDate);
+  let dateHandler = new PubdateHandler(feed.lastFetchedDate);
   const truncatedResponse = rewriter
     .on('pubdate', dateHandler)
     .on('item', dateHandler.itemHandler)

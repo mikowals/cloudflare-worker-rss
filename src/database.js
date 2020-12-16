@@ -1,7 +1,14 @@
-import loki from 'lokijs';
-import { v4 as uuidv4 } from 'uuid';
-import { fetchFeed, readItems, prepareArticlesForDB, fetchArticles } from './fetch-articles';
+import {
+  fetchFeed,
+  readItems,
+  prepareArticlesForDB,
+  fetchArticles
+} from './fetch-articles';
 import pick from 'lodash.pick';
+import loki from 'lokijs';
+import { yesterday } from './utils';
+import { v4 as uuidv4 } from 'uuid';
+
 let lokiDb = new loki("rss");
 
 export let articles = lokiDb.getCollection("articles");
@@ -75,9 +82,12 @@ const loadCollectionFromKV = async (collection) => {
   let ids = [];
   kvRows && kvRows.forEach(row => {
     try {
-      delete row['$loki']
-      delete row.meta
-      if (row.lastFetchedDate) row.lastFetchedDate = (new Date(0)).getTime();
+      delete row['$loki'];
+      delete row.meta;
+      const fetchLimitDate = yesterday();
+      if (row.lastFetchedDate < fetchLimitDate ) {
+        row.lastFetchedDate = fetchLimitDate;
+      }
       collection.insert(row);
       ids = [...ids, row._id];
     } catch (e) {}
@@ -96,10 +106,12 @@ export const addFeed = async (feed) => {
   feed.request = fetchFeed(feed);
   const feedResult = await readItems(feed);
   articles.insert(prepareArticlesForDB(feedResult));
+  saveCollectionToKV(articles)
   let feedForInsert = pick(feedResult, ['_id', 'url', 'date', 'title'])
   feedForInsert.subscribers = ['nullUser'];
   feedForInsert.lastFetchedDate = (new Date()).getTime();
   feeds.insert(feedForInsert);
+  saveCollectionToKV(feeds)
   return feedForInsert;
 }
 
@@ -108,6 +120,7 @@ export const updateLastFetchedDate = (targetFeeds) => {
     feed.lastFetchedDate = (new Date()).getTime();
     feeds.update(feed);
   });
+  saveCollectionToKV(feeds);
 }
 
 export const insertArticlesIfNew = (newArticles) => {
@@ -118,5 +131,8 @@ export const insertArticlesIfNew = (newArticles) => {
       insertedArticles = [...insertedArticles, article];
     } catch(e) {}
   });
+  if (insertedArticles.length >0) {
+    saveCollectionToKV(articles);
+  }
   return insertedArticles;
 }

@@ -43,17 +43,11 @@ async function handleRequest({request, waitUntil}) {
     const newArticles = await fetchArticles(feedsForUpdate);
     updateLastFetchedDate(feedsForUpdate);
     let itemsInserted = insertArticlesIfNew(newArticles);
-
     console.timeEnd("fetchArticles")
-    // Async put to KV so user gets response without waiting.
-    // without waitUntil the async put does not succeed.
-
-    saveCollectionToKV(articles);
-    saveCollectionToKV(feeds);
 
     return new Response(
       htmlBoilerPlate(
-        "Inserted " +  itemsInserted + " new articles in database.\n" +
+        "Inserted " +  itemsInserted.length + " new articles in database.\n" +
         JSON.stringify({summary: "<a href='http://scripting.com'>test</a>"})
       ), {
         headers: { 'content-type': 'text/html' },
