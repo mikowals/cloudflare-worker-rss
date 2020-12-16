@@ -59,7 +59,7 @@ const seedDbFeeds = async () => {
   ];
   return await Promise.all(feeds.map(addFeed))
 }
-export const saveCollectionToKV = async (collection) => {
+export const saveCollectionToKV = (collection) => {
   console.log("kv put for ", collection.name, " starting.");
   return RSS.put(
     collection.name,
@@ -74,10 +74,10 @@ const loadCollectionFromKV = async (collection) => {
   // Loop over array because db.loadJSON doesn't fill collection.
   let ids = [];
   kvRows && kvRows.forEach(row => {
-
     try {
       delete row['$loki']
       delete row.meta
+      if (row.lastFetchedDate) row.lastFetchedDate = (new Date(0)).getTime();
       collection.insert(row);
       ids = [...ids, row._id];
     } catch (e) {}
@@ -98,6 +98,25 @@ export const addFeed = async (feed) => {
   articles.insert(prepareArticlesForDB(feedResult));
   let feedForInsert = pick(feedResult, ['_id', 'url', 'date', 'title'])
   feedForInsert.subscribers = ['nullUser'];
+  feedForInsert.lastFetchedDate = (new Date()).getTime();
   feeds.insert(feedForInsert);
   return feedForInsert;
+}
+
+export const updateLastFetchedDate = (targetFeeds) => {
+  targetFeeds.forEach(feed => {
+    feed.lastFetchedDate = (new Date()).getTime();
+    feeds.update(feed);
+  });
+}
+
+export const insertArticlesIfNew = (newArticles) => {
+  let insertedArticles = [];
+  newArticles.forEach( article => {
+    try {
+      articles.insert(article);
+      insertedArticles = [...insertedArticles, article];
+    } catch(e) {}
+  });
+  return insertedArticles;
 }

@@ -17,6 +17,7 @@ export const typeDefs = gql`
     url: String
     date: Float
     count: Int
+    lastFetchedDate: Float
   }
 
   type Query {
@@ -29,6 +30,7 @@ export const typeDefs = gql`
   type Mutation {
     removeFeed(id: String): Feed
     addFeed(_id: String, url: String!): Feed
+    getNewArticles(userId: String): [Article]
   }
 
   type User {

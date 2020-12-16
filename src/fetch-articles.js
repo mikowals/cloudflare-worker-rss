@@ -1,5 +1,6 @@
 import Parser from 'rss-parser';
-import { filter, flatMap } from 'lodash';
+import filter from 'lodash.filter'
+import flatMap from 'lodash.flatmap';
 import { Article } from './article';
 
 let parser = new Parser({
@@ -12,8 +13,45 @@ let parser = new Parser({
   }
 });
 
-export const fetchFeed = async ({url, _id, lastModified, etag}) => {
-  console.time(url);
+//
+class PubdateHandler {
+  constructor(keepLimitDate) {
+    let self = this;
+    self.keepLimitDate = keepLimitDate;
+    self.dropItems = false;
+    self.dateText = '';
+    self.kept = 0;
+    self.dropped = 0;
+
+    self.itemHandler = {
+      element(item) {
+        if (self.dropItems) {
+          item.remove();
+          self.dropped++
+        } else {
+          self.kept++;
+        }
+      }
+    }
+  }
+
+  text(text) {
+    if (! this.dropItems) {
+      this.dateText += text.text;
+      if (text.lastInTextNode){
+        let date = new Date(this.dateText);
+        if (date.getTime() < this.keepLimitDate) {
+          this.dropItems = true;
+        }
+        this.dateText = '';
+      }
+    }
+  }
+}
+
+let rewriter = new HTMLRewriter();
+
+export const fetchFeed = ({url, _id, lastModified, etag}) => {
   const headers = new Headers({
     "If-Modified-Since": lastModified,
     "If-None-Match": etag
@@ -22,25 +60,35 @@ export const fetchFeed = async ({url, _id, lastModified, etag}) => {
 }
 
 export const readItems = async (feed) => {
+  let self = this;
   if (! feed._id) {
     throw new Error("readItems requires feed with '_id'.")
   }
   const httpResponse = await feed.request;
-  const rssString = await httpResponse.text();
-  console.timeEnd(feed.url);
   if (httpResponse.status !== 200) {
     console.log("Feed at " + feed.url + " not fetched.");
     console.log("Returned status code " +  httpResponse.status + ".")
     return feed;
   }
-
+  let oneDayAgo = new Date().setDate(new Date().getDate() - 1);
+  const keepLimitDate =
+    oneDayAgo < feed.lastFetchedDate ?
+    feed.lastFetchedDate :
+    oneDayAgo;
+  let dateHandler = new PubdateHandler(keepLimitDate);
+  const truncatedResponse = rewriter
+    .on('pubdate', dateHandler)
+    .on('item', dateHandler.itemHandler)
+    .transform(httpResponse);
+  //console.log(feed.title, " kept: ", dateHandler.kept, " dropped: ", dateHandler.dropped);
+  const rssString = await truncatedResponse.text();
   let updatedFeed = await parser.parseString(rssString);
-  //console.log(JSON.stringify(feed.items[0]));
   updatedFeed.etag = httpResponse.headers.etag
   updatedFeed.lastModified = httpResponse.headers["last-modified"];
   // Update url in case it has been redirected.
   updatedFeed.url = updatedFeed.feedUrl;
   updatedFeed._id = feed._id;
+  updatedFeed.lastFetchedDate = feed.lastFetchedDate;
   return updatedFeed;
 };
 
@@ -57,16 +105,5 @@ export const prepareArticlesForDB = (feed) => {
   if (! feed.items) {
     return [];
   }
-  let articles = feed.items.map(article => {
-    return new Article(article, feed);
-  });
-  return removeOldArticles(articles, 2);
+  return feed.items.map(item => new Article(item, feed));
 }
-
-const removeOldArticles = (articles, daysOld) => {
-  let dayLimit = new Date();
-  dayLimit.setDate(dayLimit.getDate() - daysOld);
-  return filter(articles, (value) => {
-    return value.date >= dayLimit;
-  });
-};

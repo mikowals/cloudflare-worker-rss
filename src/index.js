@@ -4,7 +4,9 @@ import {
   feeds,
   users,
   maybeLoadDb,
-  saveCollectionToKV
+  saveCollectionToKV,
+  insertArticlesIfNew,
+  updateLastFetchedDate
 } from './database';
 import escape from 'lodash.escape';
 import { handler as graphqlHandler } from './handlers/graphql';
@@ -33,16 +35,14 @@ async function handleRequest({request, waitUntil}) {
   switch (url.pathname) {
   case "/pollFeeds":
     console.time("fetchArticles");
-    const newArticles = await fetchArticles(feeds.find());
-    let itemsInserted = 0;
-    // RSS feeds will return duplicate articles.
-    // These could be checked against db before insert or just try inserting.
-    newArticles.forEach(article => {
-      try {
-        articles.insert(article);
-        itemsInserted += 1;
-      } catch(e) {}
-    });
+    const feedsForUpdate = feeds
+      .chain()
+      .simplesort('lastFetchedDate')
+      .limit(5)
+      .data();
+    const newArticles = await fetchArticles(feedsForUpdate);
+    updateLastFetchedDate(feedsForUpdate);
+    let itemsInserted = insertArticlesIfNew(newArticles);
 
     console.timeEnd("fetchArticles")
     // Async put to KV so user gets response without waiting.

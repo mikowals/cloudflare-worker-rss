@@ -8,10 +8,10 @@ export const countLoader = new DataLoader(async (keys) => {
   // findWhere() requies a falsy check to handle 0 counts.
 
   const groupedArticles = groupBy(articles.find({feedId: {$in: keys}}), 'feedId')
-  return keys.map((key) => {
+  return keys.map(key => {
     const group = groupedArticles[key];
     return group ? group.length : 0;
   })
 }, {
-  batchScheduleFn: callback => setTimeout(callback, 5)
+  batchScheduleFn: callback => setTimeout(callback, 1)
 });

@@ -1,7 +1,8 @@
 import { articles, feeds } from './database';
-import { addFeed } from './database';
+import { addFeed, insertArticlesIfNew, updateLastFetchedDate } from './database';
 import pick from 'lodash.pick';
 import { countLoader } from './loaders';
+import { fetchArticles } from './fetch-articles';
 
 const articlesFromFeedIds = (feedIds) => {
   const result = articles
@@ -42,6 +43,13 @@ export const resolvers = {
     addFeed(parent, {_id, url}, context, info) {
       let feed = addFeed({_id, url});
       return feed;
+    },
+
+    getNewArticles: async (parent, {userId}) => {
+      const userFeeds = feeds.find({'subscribers': { '$contains' : "nullUser"}});
+      const newArticles = await fetchArticles(userFeeds);
+      updateLastFetchedDate(userFeeds);
+      return insertArticlesIfNew(newArticles);
     }
   },
 
@@ -66,7 +74,9 @@ export const resolvers = {
     },
 
     feedIds: (_, {userId}) => feeds.find().map(f => f._id),
-    feeds: (_, {userId}) => feeds.find().map(f => pick(f, ['_id', 'title', 'url', 'date'])),
+    feeds: (_, {userId}) => feeds.find().map(f => {
+      return pick(f, ['_id', 'title', 'url', 'date', 'lastFetchedDate'])
+    }),
     //feeds: (_, {userId}) => feedLoader.load(userId),
     user: (_, {userId}) => {
       return {_id: "nullUser", feedList: feeds.find().map(f => f._id)}
