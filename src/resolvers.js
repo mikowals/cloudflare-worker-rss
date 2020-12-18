@@ -1,5 +1,9 @@
 import { articles, feeds } from './database';
-import { addFeed, insertArticlesIfNew, updateLastFetchedDate } from './database';
+import {
+  addFeed,
+  insertArticlesIfNew,
+  updateLastFetchedDate
+} from './database';
 import pick from 'lodash.pick';
 import { countLoader } from './loaders';
 import { fetchArticles } from './fetch-articles';
@@ -24,6 +28,7 @@ const articlesFromFeedIds = (feedIds) => {
 
 const feedsFromUserId = (userId) => {
   const result = feeds.find();
+  console.log(JSON.stringify(result));
   return result.map(feed => pick(feed, ['_id', 'title', 'url', 'date']));
 }
 

@@ -1,10 +1,9 @@
 import Parser from 'rss-parser';
-import filter from 'lodash.filter'
-import flatMap from 'lodash.flatmap';
 import { Article } from './article';
 import { yesterday } from './utils';
+import isEmpty from 'lodash.isEmpty';
 
-let parser = new Parser({
+const parser = new Parser({
   customFields: {
     item: [
       ['author', 'author'],
@@ -14,26 +13,11 @@ let parser = new Parser({
   }
 });
 
-//
 class PubdateHandler {
   constructor(keepLimitDate) {
-    let self = this;
-    self.keepLimitDate = keepLimitDate;
-    self.dropItems = false;
-    self.dateText = '';
-    self.kept = 0;
-    self.dropped = 0;
-
-    self.itemHandler = {
-      element(item) {
-        if (self.dropItems) {
-          item.remove();
-          self.dropped++
-        } else {
-          self.kept++;
-        }
-      }
-    }
+    this.keepLimitDate = keepLimitDate;
+    this.dropItems = false;
+    this.dateText = '';
   }
 
   text(text) {
@@ -50,7 +34,26 @@ class PubdateHandler {
   }
 }
 
-let rewriter = new HTMLRewriter();
+class ItemHandler {
+  constructor(pubdateHandler) {
+    this.dropItems = () => pubdateHandler.dropItems;
+    this.dropped = 0;
+    this.kept = 0;
+  }
+
+  element(item) {
+    if (this.dropItems()) {
+      item.remove();
+      this.dropped++;
+    } else {
+      this.kept++;
+    }
+  }
+
+  log(id) {
+    console.log("PubdateHandler - ", id, " kept: ", this.kept, " dropped: ", this.dropped)
+  }
+}
 
 export const fetchFeed = ({url, _id, lastModified, etag}) => {
   const headers = new Headers({
@@ -61,7 +64,7 @@ export const fetchFeed = ({url, _id, lastModified, etag}) => {
 }
 
 export const readItems = async (feed) => {
-  let self = this;
+  const self = this;
   if (! feed._id) {
     throw new Error("readItems requires feed with '_id'.")
   }
@@ -71,19 +74,24 @@ export const readItems = async (feed) => {
     console.log("Returned status code " +  httpResponse.status + ".")
     return feed;
   }
-  let oneDayAgo = new Date().setDate(new Date().getDate() - 1);
-  let dateHandler = new PubdateHandler(feed.lastFetchedDate);
+  if (yesterday() > feed.lastFetchedDate) {
+    feed.lastFetchedDate = yesterday();
+  }
+  // HTMLRewriter outside of concurrent feed response leads to
+  // overwriting and only the items of the first httpResponse being kept.
+  const rewriter = new HTMLRewriter();
+  const dateHandler = new PubdateHandler(feed.lastFetchedDate);
+  const itemHandler = new ItemHandler(dateHandler);
   const truncatedResponse = rewriter
     .on('pubdate', dateHandler)
-    .on('item', dateHandler.itemHandler)
+    .on('item', itemHandler)
     .transform(httpResponse);
-  //console.log(feed.title, " kept: ", dateHandler.kept, " dropped: ", dateHandler.dropped);
   const rssString = await truncatedResponse.text();
-  let updatedFeed = await parser.parseString(rssString);
+  const updatedFeed = await parser.parseString(rssString);
   updatedFeed.etag = httpResponse.headers.etag
   updatedFeed.lastModified = httpResponse.headers["last-modified"];
   // Update url in case it has been redirected.
-  updatedFeed.url = updatedFeed.feedUrl;
+  updatedFeed.url = updatedFeed.feedUrl || feed.url;
   updatedFeed._id = feed._id;
   updatedFeed.lastFetchedDate = feed.lastFetchedDate;
   return updatedFeed;
@@ -95,11 +103,11 @@ export const fetchArticles = async (feeds) => {
     return f;
   })
   const updatedFeeds = await Promise.all(feedsWithRequests.map(readItems));
-  return flatMap(updatedFeeds, prepareArticlesForDB);
+  return updatedFeeds.flatMap(prepareArticlesForDB);
 };
 
 export const prepareArticlesForDB = (feed) => {
-  if (! feed.items) {
+  if (isEmpty(feed.items)) {
     return [];
   }
   return feed.items.map(item => new Article(item, feed));

@@ -5,6 +5,7 @@ import {
   fetchArticles
 } from './fetch-articles';
 import pick from 'lodash.pick';
+import isEmpty from 'lodash.isempty'
 import loki from 'lokijs';
 import { yesterday } from './utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -19,8 +20,6 @@ if (articles === null) {
   });
 }
 
-console.log("number of articles in database : " + articles.count());
-
 export let feeds = lokiDb.getCollection('feeds');
 if (feeds === null) {
   feeds = lokiDb.addCollection('feeds',{
@@ -29,73 +28,70 @@ if (feeds === null) {
   });
 }
 
+const defaultFeeds = [
+  {url: "http://feeds.bbci.co.uk/news/education/rss.xml"},
+  {url: "https://www.abc.net.au/news/feed/51120/rss.xml"},
+  {url: "http://feeds.bbci.co.uk/news/world/rss.xml"},
+  {url: "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml"},
+  {url: "http://scripting.com/rss.xml"}
+];
+
 export const maybeLoadDb = async () => {
+  // If we have feeds assume we have articles too.
   if (feeds.count() > 0) {
     return;
   }
-  let feedIds = await loadCollectionFromKV(feeds);
-  if (Array.isArray(feedIds) && feedIds.length === 0) {
-    await seedDbFeeds();
+  let kvFeeds = await loadFeedsFromKV();
+  if (Array.isArray(kvFeeds) && kvFeeds.length > 0) {
+    // Feeds recovered from KV and we should load articles to match.
+    // keeping articles in KV may be faster but some mechanism needs to
+    // be sure article fetching is in sync with Feed.lastFetchedDate and
+    // Article.feedId matches a Feed._id.
+    const newArticles = await fetchArticles(kvFeeds)
+    articles.insert(newArticles);
     return;
   }
-  let articleIds = await loadCollectionFromKV(articles);
-  if (articleIds.length < 1) {
-    const newArticles = await fetchArticles(feeds.find({_id: {'$in': feedIds}}))
-    articles.insert(newArticles);
-  }
-}
-// Because of Worker KV this function must run inside the request.
-const maybeLoadDbFromWorkerKV = async () => {
-  let feedIds = [];
-  if (articles.count() < 1) {
-    feedIds = await loadCollectionFromKV(articles);
-  }
-  if (feedIds.length < 1) {
-    feedIds = await seedDbFeeds;
-  }
-  return feedIds;
+  // If feeds not found in KV then recreate feeds and articles from defaults.
+  await Promise.all(defaultFeeds.map(insertNewFeedWithArticles));
 }
 
-const seedDbFeeds = async () => {
-  const feeds = [
-    {url: "http://feeds.bbci.co.uk/news/education/rss.xml"},
-    {url: "https://www.abc.net.au/news/feed/51120/rss.xml"},
-    {url: "http://feeds.bbci.co.uk/news/world/rss.xml"},
-    {url: "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml"},
-    {url: "http://scripting.com/rss.xml"}
-  ];
-  return await Promise.all(feeds.map(addFeed))
-}
-export const saveCollectionToKV = (collection) => {
-  console.log("kv put for ", collection.name, " starting.");
-  return RSS.put(
+export const saveCollectionToKV = async (collection, expirationTtl) => {
+  const targetData = collection.find();
+  return await RSS.put(
     collection.name,
-    JSON.stringify(collection.find()),
-    {expirationTtl: 2 * 24 * 60 * 60}
-  ).then((result) => console.log("kv put for ", collection.name, " result: ", result));
+    JSON.stringify(targetData),
+    {expirationTtl}
+  )
 }
 
-const loadCollectionFromKV = async (collection) => {
-  console.log("loading ", collection.name, " from kv.");
-  let kvRows = await RSS.get(collection.name, 'json');
+const loadFeedsFromKV = async () => {
+  let kvRows = await RSS.get('feeds', 'json');
   // Loop over array because db.loadJSON doesn't fill collection.
-  let ids = [];
+  let kvFeeds = [];
   kvRows && kvRows.forEach(row => {
     try {
       delete row['$loki'];
       delete row.meta;
-      const fetchLimitDate = yesterday();
-      if (row.lastFetchedDate < fetchLimitDate ) {
-        row.lastFetchedDate = fetchLimitDate;
-      }
-      collection.insert(row);
-      ids = [...ids, row._id];
+      // Reset some properties so next article fetch returns something.
+      row.lastFetchedDate = yesterday();
+      delete row.etag
+      delete row.lastModified
+      feeds.insert(row);
+      kvFeeds = [...kvFeeds, row];
     } catch (e) {}
   });
-  return ids;
+  return kvFeeds;
 }
 
-export const addFeed = async (feed) => {
+// Fetch RSS feed details from a given URL and populate Loki with both
+// the RSS feed and articles.  These could be separated but as fetching the
+// URL will always return the articles too, just insert both.
+
+// XXX Fix this to work with a 'users' database so that different users
+// can see different set of feeds and articles.  See the 'Feed.subscribers'
+// property placeholder.
+
+export const insertNewFeedWithArticles = async (feed) => {
   const existingFeed = feeds.findOne({url: feed.url});
   if (existingFeed) {
     return existingFeed;
@@ -106,10 +102,18 @@ export const addFeed = async (feed) => {
   feed.request = fetchFeed(feed);
   const feedResult = await readItems(feed);
   articles.insert(prepareArticlesForDB(feedResult));
-  saveCollectionToKV(articles)
-  let feedForInsert = pick(feedResult, ['_id', 'url', 'date', 'title'])
+  let feedForInsert = pick(feedResult, [
+    '_id',
+    'url',
+    'date',
+    'title',
+    'etag',
+    'lastModified'
+  ]);
   feedForInsert.subscribers = ['nullUser'];
-  feedForInsert.lastFetchedDate = (new Date()).getTime();
+  if (! isEmpty(feedResult.items)) {
+    feedForInsert.lastFetchedDate = (new Date()).getTime();
+  }
   feeds.insert(feedForInsert);
   saveCollectionToKV(feeds)
   return feedForInsert;
@@ -117,10 +121,12 @@ export const addFeed = async (feed) => {
 
 export const updateLastFetchedDate = (targetFeeds) => {
   targetFeeds.forEach(feed => {
+    if (isEmpty(feed.items)) {
+      return;
+    }
     feed.lastFetchedDate = (new Date()).getTime();
     feeds.update(feed);
   });
-  saveCollectionToKV(feeds);
 }
 
 export const insertArticlesIfNew = (newArticles) => {
@@ -131,8 +137,5 @@ export const insertArticlesIfNew = (newArticles) => {
       insertedArticles = [...insertedArticles, article];
     } catch(e) {}
   });
-  if (insertedArticles.length >0) {
-    saveCollectionToKV(articles);
-  }
   return insertedArticles;
 }

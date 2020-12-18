@@ -4,7 +4,6 @@ import {
   feeds,
   users,
   maybeLoadDb,
-  saveCollectionToKV,
   insertArticlesIfNew,
   updateLastFetchedDate
 } from './database';
@@ -33,6 +32,7 @@ async function handleRequest({request, waitUntil}) {
   await maybeLoadDb();
   const url = new URL(request.url);
   switch (url.pathname) {
+
   case "/pollFeeds":
     console.time("fetchArticles");
     const feedsForUpdate = feeds
@@ -42,9 +42,8 @@ async function handleRequest({request, waitUntil}) {
       .data();
     const newArticles = await fetchArticles(feedsForUpdate);
     updateLastFetchedDate(feedsForUpdate);
-    let itemsInserted = insertArticlesIfNew(newArticles);
-    console.timeEnd("fetchArticles")
-
+    let itemsInserted = await insertArticlesIfNew(newArticles);
+    console.timeEnd("fetchArticles");
     return new Response(
       htmlBoilerPlate(
         "Inserted " +  itemsInserted.length + " new articles in database.\n" +
@@ -52,7 +51,7 @@ async function handleRequest({request, waitUntil}) {
       ), {
         headers: { 'content-type': 'text/html' },
     });
-    break;
+
   case "/graphql":
     const response =
       request.method === 'OPTIONS'
@@ -60,10 +59,9 @@ async function handleRequest({request, waitUntil}) {
         : await graphqlHandler(request);
     return setCorsHeaders(response);
 
-    break;
   case "/__graphql":
       return playgroundHandler(request, {baseEndpoint: '/graphql'});
-      break;
+
   default:
     return new Response(htmlBoilerPlate(
       JSON.stringify(
