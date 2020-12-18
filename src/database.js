@@ -12,21 +12,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 let lokiDb = new loki("rss");
 
-export let articles = lokiDb.getCollection("articles");
-if (articles === null) {
-  articles = lokiDb.addCollection("articles", {
-    unique: ['link', '_id'],
-    indices: ['_id', 'feedId', 'date']
-  });
-}
-
-export let feeds = lokiDb.getCollection('feeds');
-if (feeds === null) {
-  feeds = lokiDb.addCollection('feeds',{
-    unique: ['url'],
-    indices: ['_id']
-  });
-}
+export let articles;
+export let feeds;
 
 const defaultFeeds = [
   {url: "http://feeds.bbci.co.uk/news/education/rss.xml"},
@@ -38,49 +25,43 @@ const defaultFeeds = [
 
 export const maybeLoadDb = async () => {
   // If we have feeds assume we have articles too.
-  if (feeds.count() > 0) {
+  if (feeds && feeds.count() > 0) {
     return;
   }
-  let kvFeeds = await loadFeedsFromKV();
-  if (Array.isArray(kvFeeds) && kvFeeds.length > 0) {
-    // Feeds recovered from KV and we should load articles to match.
-    // keeping articles in KV may be faster but some mechanism needs to
-    // be sure article fetching is in sync with Feed.lastFetchedDate and
-    // Article.feedId matches a Feed._id.
-    const newArticles = await fetchArticles(kvFeeds)
-    articles.insert(newArticles);
-    return;
+  // Try to reflate lokijs from kv storage
+  const jsonDb = await RSS.get('jsonDb');
+  if (jsonDb) {
+    lokiDb.loadJSON(jsonDb)
+    feeds = lokiDb.getCollection('feeds');
+    articles = lokiDb.getCollection("articles");
+    console.log("loadJSON created ", feeds.count(), " feeds");
+    if (feeds && feeds.count() > 0) {
+      return;
+    }
   }
+
+  if (feeds === null) {
+    feeds = lokiDb.addCollection('feeds',{
+      unique: ['url'],
+      indices: ['_id']
+    });
+  }
+
+  if (articles === null) {
+    articles = lokiDb.addCollection("articles", {
+      unique: ['link', '_id'],
+      indices: ['_id', 'feedId', 'date']
+    });
+  }
+
   // If feeds not found in KV then recreate feeds and articles from defaults.
   await Promise.all(defaultFeeds.map(insertNewFeedWithArticles));
+  await backupDb();
 }
 
-export const saveCollectionToKV = async (collection, expirationTtl) => {
-  const targetData = collection.find();
-  return await RSS.put(
-    collection.name,
-    JSON.stringify(targetData),
-    {expirationTtl}
-  )
-}
-
-const loadFeedsFromKV = async () => {
-  let kvRows = await RSS.get('feeds', 'json');
-  // Loop over array because db.loadJSON doesn't fill collection.
-  let kvFeeds = [];
-  kvRows && kvRows.forEach(row => {
-    try {
-      delete row['$loki'];
-      delete row.meta;
-      // Reset some properties so next article fetch returns something.
-      row.lastFetchedDate = yesterday();
-      delete row.etag
-      delete row.lastModified
-      feeds.insert(row);
-      kvFeeds = [...kvFeeds, row];
-    } catch (e) {}
-  });
-  return kvFeeds;
+const backupDb = async () => {
+  const json = lokiDb.serialize();
+  return await RSS.put("jsonDb", json, {expirationTtl: 2 * 24 * 60 *60});
 }
 
 // Fetch RSS feed details from a given URL and populate Loki with both
@@ -101,6 +82,7 @@ export const insertNewFeedWithArticles = async (feed) => {
   }
   feed.request = fetchFeed(feed);
   const feedResult = await readItems(feed);
+  console.log(feedResult.title, " : ", feedResult.items.length);
   articles.insert(prepareArticlesForDB(feedResult));
   let feedForInsert = pick(feedResult, [
     '_id',
@@ -115,7 +97,6 @@ export const insertNewFeedWithArticles = async (feed) => {
     feedForInsert.lastFetchedDate = (new Date()).getTime();
   }
   feeds.insert(feedForInsert);
-  saveCollectionToKV(feeds)
   return feedForInsert;
 }
 
@@ -137,5 +118,6 @@ export const insertArticlesIfNew = (newArticles) => {
       insertedArticles = [...insertedArticles, article];
     } catch(e) {}
   });
+  await backupDb();
   return insertedArticles;
 }
