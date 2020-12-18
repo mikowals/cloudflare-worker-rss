@@ -82,7 +82,6 @@ export const insertNewFeedWithArticles = async (feed) => {
   }
   feed.request = fetchFeed(feed);
   const feedResult = await readItems(feed);
-  console.log(feedResult.title, " : ", feedResult.items.length);
   articles.insert(prepareArticlesForDB(feedResult));
   let feedForInsert = pick(feedResult, [
     '_id',
@@ -118,6 +117,6 @@ export const insertArticlesIfNew = (newArticles) => {
       insertedArticles = [...insertedArticles, article];
     } catch(e) {}
   });
-  await backupDb();
+  backupDb().then(result => console.log("backup result: ", result));
   return insertedArticles;
 }
