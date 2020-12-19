@@ -41,10 +41,10 @@ const defaultFeeds = [
   {url: "http://scripting.com/rss.xml"}
 ];
 
-export const maybeLoadDb = async () => {
+export const maybeLoadDb = async (event) => {
   // If we have feeds assume we have articles too.
   if (feeds && feeds.count() > 0) {
-    return;
+    return true;
   }
   // Try to reflate lokijs from kv storage
   const jsonDb = await RSS.get('jsonDb');
@@ -53,17 +53,20 @@ export const maybeLoadDb = async () => {
   }
   initializeDb();
   if (feeds && feeds.count() > 0) {
-    return;
+    return true;
   }
 
   // If feeds not found in KV then recreate feeds and articles from defaults.
   await Promise.all(defaultFeeds.map(insertNewFeedWithArticles));
-  await backupDb();
+  backupDb(event);
+  return true;
 }
 
-export const backupDb = async () => {
+export const backupDb = (event) => {
   const json = lokiDb.serialize();
-  return await RSS.put("jsonDb", json, {expirationTtl: 2 * 24 * 60 *60});
+  return event.waitUntil(
+    RSS.put("jsonDb", json, {expirationTtl: 2 * 24 * 60 *60})
+  );
 }
 
 // Fetch RSS feed details from a given URL and populate Loki with both
@@ -119,6 +122,5 @@ export const insertArticlesIfNew = async (newArticles) => {
       insertedArticles = [...insertedArticles, article];
     } catch(e) {}
   });
-  await backupDb();
   return insertedArticles;
 }

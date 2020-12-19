@@ -12,6 +12,11 @@ import escape from 'lodash.escape';
 import { handler as graphqlHandler } from './handlers/graphql';
 import { handler as playgroundHandler } from './handlers/playground';
 
+const isMutation = async (request) => {
+  const clone = await request.clone();
+  const json = await clone.json();
+  return json.query.slice(0,8) === 'mutation';
+}
 
 const htmlBoilerPlate = (text) => {
   return "<!doctype html>                       \
@@ -29,8 +34,9 @@ addEventListener('fetch', event => {
   event.respondWith(handleRequest(event));
 })
 
-async function handleRequest({request, waitUntil}) {
-  await maybeLoadDb();
+async function handleRequest(event) {
+  const { request } = event;
+  await maybeLoadDb(event);
   const url = new URL(request.url);
   switch (url.pathname) {
 
@@ -44,6 +50,7 @@ async function handleRequest({request, waitUntil}) {
     const newArticles = await fetchArticles(feedsForUpdate);
     updateLastFetchedDate(feedsForUpdate);
     let itemsInserted = await insertArticlesIfNew(newArticles);
+    backupDb(event);
     console.timeEnd("fetchArticles");
     return new Response(
       htmlBoilerPlate(
@@ -58,6 +65,9 @@ async function handleRequest({request, waitUntil}) {
       request.method === 'OPTIONS'
         ? new Response('', { status: 204 })
         : await graphqlHandler(request);
+    if (isMutation) {
+      backupDb(event);
+    }
     return setCorsHeaders(response);
 
   case "/__graphql":

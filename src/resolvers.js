@@ -53,7 +53,7 @@ export const resolvers = {
       const userFeeds = feeds.find({'subscribers': { '$contains' : "nullUser"}});
       const newArticles = await fetchArticles(userFeeds);
       updateLastFetchedDate(userFeeds);
-      return await insertArticlesIfNew(newArticles);
+      return insertArticlesIfNew(newArticles);
     }
   },
 
