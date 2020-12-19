@@ -15,6 +15,24 @@ let lokiDb = new loki("rss");
 export let articles;
 export let feeds;
 
+const initializeDb = () => {
+  feeds = lokiDb.getCollection('feeds');
+  articles = lokiDb.getCollection("articles");
+  if (feeds === null) {
+    feeds = lokiDb.addCollection('feeds',{
+      unique: ['url'],
+      indices: ['_id']
+    });
+  }
+
+  if (articles === null) {
+    articles = lokiDb.addCollection("articles", {
+      unique: ['link', '_id'],
+      indices: ['_id', 'feedId', 'date']
+    });
+  }
+}
+
 const defaultFeeds = [
   {url: "http://feeds.bbci.co.uk/news/education/rss.xml"},
   {url: "https://www.abc.net.au/news/feed/51120/rss.xml"},
@@ -32,26 +50,10 @@ export const maybeLoadDb = async () => {
   const jsonDb = await RSS.get('jsonDb');
   if (jsonDb) {
     lokiDb.loadJSON(jsonDb)
-    feeds = lokiDb.getCollection('feeds');
-    articles = lokiDb.getCollection("articles");
-    console.log("loadJSON created ", feeds.count(), " feeds");
-    if (feeds && feeds.count() > 0) {
-      return;
-    }
   }
-
-  if (feeds === null) {
-    feeds = lokiDb.addCollection('feeds',{
-      unique: ['url'],
-      indices: ['_id']
-    });
-  }
-
-  if (articles === null) {
-    articles = lokiDb.addCollection("articles", {
-      unique: ['link', '_id'],
-      indices: ['_id', 'feedId', 'date']
-    });
+  initializeDb();
+  if (feeds && feeds.count() > 0) {
+    return;
   }
 
   // If feeds not found in KV then recreate feeds and articles from defaults.

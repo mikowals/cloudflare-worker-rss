@@ -28,7 +28,6 @@ const articlesFromFeedIds = (feedIds) => {
 
 const feedsFromUserId = (userId) => {
   const result = feeds.find();
-  console.log(JSON.stringify(result));
   return result.map(feed => pick(feed, ['_id', 'title', 'url', 'date']));
 }
 
@@ -68,13 +67,11 @@ export const resolvers = {
   Query: {
     //articles: (parent, {userId}, context, info) => articlesLoader.load(userId),
     articles: (_, {userId}) => {
-      console.time('articles query');
       const feedList = feeds.find().map(f => f._id);
       if (feedList.length === 0) {
         return [];
       }
       const result = articlesFromFeedIds(feedList);
-      console.timeEnd('articles query');
       return result
     },
 
