@@ -61,7 +61,7 @@ export const maybeLoadDb = async () => {
   await backupDb();
 }
 
-const backupDb = async () => {
+export const backupDb = async () => {
   const json = lokiDb.serialize();
   return await RSS.put("jsonDb", json, {expirationTtl: 2 * 24 * 60 *60});
 }
@@ -111,7 +111,7 @@ export const updateLastFetchedDate = (targetFeeds) => {
   });
 }
 
-export const insertArticlesIfNew = (newArticles) => {
+export const insertArticlesIfNew = async (newArticles) => {
   let insertedArticles = [];
   newArticles.forEach( article => {
     try {
@@ -119,6 +119,6 @@ export const insertArticlesIfNew = (newArticles) => {
       insertedArticles = [...insertedArticles, article];
     } catch(e) {}
   });
-  backupDb().then(result => console.log("backup result: ", result));
+  await backupDb();
   return insertedArticles;
 }
