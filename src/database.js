@@ -65,7 +65,7 @@ export const maybeLoadDb = async (event) => {
 export const backupDb = (event) => {
   const json = lokiDb.serialize();
   return event.waitUntil(
-    RSS.put("jsonDb", json, {expirationTtl: 2 * 24 * 60 *60})
+    RSS.put("jsonDb", json)
   );
 }
 
