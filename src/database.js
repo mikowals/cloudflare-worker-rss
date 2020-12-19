@@ -58,15 +58,15 @@ export const maybeLoadDb = async (event) => {
 
   // If feeds not found in KV then recreate feeds and articles from defaults.
   await Promise.all(defaultFeeds.map(insertNewFeedWithArticles));
-  backupDb(event);
+  event.waitUntil(backupDb());
   return true;
 }
 
-export const backupDb = (event) => {
+//
+export const backupDb = () => {
+  console.log("running backup")
   const json = lokiDb.serialize();
-  return event.waitUntil(
-    RSS.put("jsonDb", json)
-  );
+  return RSS.put("jsonDb", json);
 }
 
 // Fetch RSS feed details from a given URL and populate Loki with both

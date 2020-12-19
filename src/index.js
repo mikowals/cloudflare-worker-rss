@@ -13,9 +13,11 @@ import { handler as graphqlHandler } from './handlers/graphql';
 import { handler as playgroundHandler } from './handlers/playground';
 
 const isMutation = async (request) => {
-  const clone = await request.clone();
-  const json = await clone.json();
-  return json.query.slice(0,8) === 'mutation';
+  const json = await request.json();
+  if (json.query.slice(0,8) === 'mutation') {
+    return backupDb();
+  }
+  return true;
 }
 
 const htmlBoilerPlate = (text) => {
@@ -50,7 +52,7 @@ async function handleRequest(event) {
     const newArticles = await fetchArticles(feedsForUpdate);
     updateLastFetchedDate(feedsForUpdate);
     let itemsInserted = await insertArticlesIfNew(newArticles);
-    backupDb(event);
+    event.waitUntil(backupDb());
     console.timeEnd("fetchArticles");
     return new Response(
       htmlBoilerPlate(
@@ -61,13 +63,12 @@ async function handleRequest(event) {
     });
 
   case "/graphql":
+    const clone = await request.clone();
     const response =
       request.method === 'OPTIONS'
         ? new Response('', { status: 204 })
         : await graphqlHandler(request);
-    if (isMutation) {
-      backupDb(event);
-    }
+    event.waitUntil(isMutation(clone));
     return setCorsHeaders(response);
 
   case "/__graphql":
