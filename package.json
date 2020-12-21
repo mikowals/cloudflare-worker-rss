@@ -30,6 +30,7 @@
     "rss-parser": "^3.9.0",
     "sanitize-html": "^2.2.0",
     "trim-html": "^0.1.9",
-    "uuid": "^8.3.2"
+    "uuid": "^8.3.2",
+    "xml2js": "^0.4.23"
   }
 }

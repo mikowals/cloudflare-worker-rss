@@ -64,7 +64,6 @@ export const maybeLoadDb = async (event) => {
 
 //
 export const backupDb = () => {
-  console.log("running backup")
   const json = lokiDb.serialize();
   return RSS.put("jsonDb", json);
 }

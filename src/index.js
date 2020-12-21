@@ -69,6 +69,7 @@ async function handleRequest(event) {
         ? new Response('', { status: 204 })
         : await graphqlHandler(request);
     event.waitUntil(isMutation(clone));
+    response.headers.set("Cache-Control", "max-age=0");
     return setCorsHeaders(response);
 
   case "/__graphql":
