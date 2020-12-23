@@ -1,6 +1,6 @@
 import { articles, feeds } from './database';
 import {
-  addFeed,
+  insertNewFeedWithArticles,
   insertArticlesIfNew,
   updateLastFetchedDate
 } from './database';
@@ -45,7 +45,7 @@ export const resolvers = {
     },
 
     addFeed(parent, {_id, url}, context, info) {
-      let feed = addFeed({_id, url});
+      let feed = insertNewFeedWithArticles({_id, url});
       return feed;
     },
 

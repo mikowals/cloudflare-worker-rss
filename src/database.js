@@ -14,24 +14,36 @@ let lokiDb = new loki("rss");
 
 export let articles;
 export let feeds;
+export let users;
+
+const getCollection = ({name, unique, indices}) => {
+  let collection = lokiDb.getCollection(name);
+  if (collection === null) {
+    console.log(name, " not found. Adding collection.");
+    return lokiDb.addCollection(name, {unique, indices});
+  }
+  unique.forEach(key => collection.ensureUniqueIndex(key));
+  indices.forEach(key => collection.ensureIndex(key));
+  return collection;
+}
 
 const initializeDb = () => {
-  feeds = lokiDb.getCollection('feeds');
-  articles = lokiDb.getCollection("articles");
-  if (feeds === null) {
-    feeds = lokiDb.addCollection('feeds',{
-      unique: ['url'],
-      indices: ['_id']
-    });
-  }
-
-  if (articles === null) {
-    articles = lokiDb.addCollection("articles", {
-      unique: ['link', '_id'],
-      indices: ['_id', 'feedId', 'date']
-    });
-  }
-}
+  articles = getCollection({
+    name: "articles",
+    unique: ["_id", "link", "summary"],
+    indices: ["date", "feedId"]
+  });
+  feeds = getCollection({
+    name: "feeds",
+    unique: ["_id", "url"],
+    indices: ["_id", "url"]
+  });
+  users = getCollection({
+    name: "users",
+    unique: ["_id"],
+    indices: ["_id"]
+  });
+};
 
 const defaultFeeds = [
   {url: "http://feeds.bbci.co.uk/news/education/rss.xml"},
@@ -42,16 +54,15 @@ const defaultFeeds = [
 ];
 
 export const maybeLoadDb = async (event) => {
-  // If we have feeds assume we have articles too.
-  if (feeds && feeds.count() > 0) {
-    return true;
-  }
   // Try to reflate lokijs from kv storage
   const jsonDb = await RSS.get('jsonDb');
   if (jsonDb) {
     lokiDb.loadJSON(jsonDb)
   }
+  // initialize after db loaded from disk but before any use.
   initializeDb();
+  const user = users.findOne();
+  user && console.log("timeStamp: ", user.timeStamp, " articleCount: ", articles.count());
   if (feeds && feeds.count() > 0) {
     return true;
   }
@@ -62,12 +73,31 @@ export const maybeLoadDb = async (event) => {
   return true;
 }
 
+const logDetailsToDb = () => {
+  const details = {
+    _id: "nullUser",
+    timeStamp: new Date().toUTCString(),
+    articleCount: articles.count()
+  };
+  if (users.count() === 0) {
+    users.insert(details);
+  } else {
+    const user = users.findOne({_id: details._id})
+    user.timeStamp = details.timeStamp;
+    user.articleCount = details.articleCount;
+    users.update(user);
+  }
+}
+
 //
 export const backupDb = () => {
+  logDetailsToDb();
   console.log("running backup")
   const json = lokiDb.serialize();
-  return RSS.put("jsonDb", json);
-}
+  return new Promise((resolved) => {
+    RSS.put("jsonDb", json).then(resolved);
+  });
+};
 
 // Fetch RSS feed details from a given URL and populate Loki with both
 // the RSS feed and articles.  These could be separated but as fetching the

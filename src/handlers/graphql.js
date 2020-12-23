@@ -13,6 +13,6 @@ const createServer = () =>
 export const handler = (request) => {
   const server = createServer()
   return graphqlCloudflare(() => server.createGraphQLServerOptions(request))(request);
-  response.headersresponse.headers.set('Cache-Control','max-age=0');
+  response.headers.set('Cache-Control','max-age=0');
   return response
 }
