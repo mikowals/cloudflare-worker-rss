@@ -60,7 +60,12 @@ export const fetchFeed = ({url, _id, lastModified, etag}) => {
     "If-Modified-Since": lastModified,
     "If-None-Match": etag
   });
-  return fetch(new Request(url, {headers}));
+  return fetch(new Request(url, {headers}),{
+    cf: {
+      cacheEverything: true,
+      cacheTtlByStatus: {'200-299': 1200, 404: 1, '500-599': 0}
+    }
+  });
 }
 
 export const readItems = async (feed) => {
