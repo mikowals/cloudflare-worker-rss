@@ -70,6 +70,12 @@ export const maybeLoadDb = async (event) => {
   initializeDb();
   const user = users.findOne();
   user && console.log("timeStamp: ", user.timeStamp, " articleCount: ", articles.count());
+  try {
+    const faunaFeeds = await client.query(
+      q.Match(q.Index("allFeeds"))
+    );
+    console.log("fauna feed count: ", faunaFeeds && faunaFeeds.length);
+  } catch(e) {console.log(e)}
   if (feeds && feeds.count() > 0) {
     return true;
   }
