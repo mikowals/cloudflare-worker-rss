@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export class Article {
   constructor({
-    _id,
+    id,
     title,
     author,
     date,
@@ -16,11 +16,11 @@ export class Article {
     content
   } = {}, feed = {}) {
     assignIn(this, {
-      _id: _id || uuidv4(),
+      id: id || uuidv4(),
       title: unescape( title ),
       author,
       source: feed.title || null,
-      feedId: feed._id || null,
+      feedId: feed.id || null,
       date: new Date(date).getTime(),
       link,
     });

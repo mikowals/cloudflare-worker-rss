@@ -17,7 +17,7 @@ const articlesFromFeedIds = (feedIds) => {
     .data();
 
   return result.map( article => pick(article, [
-    '_id',
+    'id',
     'title',
     'source',
     'link',

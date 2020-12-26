@@ -55,7 +55,7 @@ class ItemHandler {
   }
 }
 
-export const fetchFeed = ({url, _id, lastModified, etag}) => {
+export const fetchFeed = ({url, id, lastModified, etag}) => {
   const headers = new Headers({
     "If-Modified-Since": lastModified,
     "If-None-Match": etag
@@ -70,8 +70,8 @@ export const fetchFeed = ({url, _id, lastModified, etag}) => {
 
 export const readItems = async (feed) => {
   const self = this;
-  if (! feed._id) {
-    throw new Error("readItems requires feed with '_id'.")
+  if (! feed.id) {
+    throw new Error("readItems requires feed with 'id'.")
   }
   const httpResponse = await feed.request;
   if (httpResponse.status !== 200) {
@@ -97,7 +97,7 @@ export const readItems = async (feed) => {
   updatedFeed.lastModified = httpResponse.headers["last-modified"];
   // Update url in case it has been redirected.
   updatedFeed.url = updatedFeed.feedUrl || feed.url;
-  updatedFeed._id = feed._id;
+  updatedFeed.id = feed.id;
   updatedFeed.lastFetchedDate = feed.lastFetchedDate;
   return updatedFeed;
 };

@@ -111,7 +111,46 @@ export const backupDb = () => {
 // can see different set of feeds and articles.  See the 'Feed.subscribers'
 // property placeholder.
 
+export const insertNewFeedWithArticles = async (feed) => {
+  const existingFeed = feeds.findOne({url: feed.url});
+  if (existingFeed) {
+    //return existingFeed;
+  }
+  if (! feed.id) {
+    feed.id = uuidv4();
+  }
+  feed.request = fetchFeed(feed);
+  const feedResult = await readItems(feed);
+  const dbArticles = repareArticlesForDB(feedResult);
+  client.query(
+    q.Map(
+      dbArticles,
+      q.Lambda(
+        "article",
+        q.Create(q.Collection("articles"), {data: q.Var("article")})
+      )
+    )
+  ).then(r => console.log(r)).catch(e => console.log(e));
+  //articles.insert(dbArticles);
+  let feedForInsert = pick(feedResult, [
+    'id',
+    'url',
+    'date',
+    'title',
+    'etag',
+    'lastModified'
+  ]);
+  feedForInsert.subscribers = ['nullUser'];
+  if (! isEmpty(feedResult.items)) {
+    feedForInsert.lastFetchedDate = (new Date()).getTime();
+  }
+  client.query(
+    q.Create(q.Collection("feeds"), {data: feedForInsert})
+  ).then(r => console.log(r)).catch(e => console.log(e));
 
+  //feeds.insert(feedForInsert);
+  return feedForInsert;
+}
 
 export const updateLastFetchedDate = (targetFeeds) => {
   targetFeeds.forEach(feed => {
