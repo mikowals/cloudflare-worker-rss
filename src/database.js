@@ -70,13 +70,11 @@ export const maybeLoadDb = async (event) => {
   initializeDb();
   const user = users.findOne();
   user && console.log("timeStamp: ", user.timeStamp, " articleCount: ", articles.count());
-  try {
-    const faunaFeeds = await client.query(
-      q.Match(q.Index("allFeeds"))
-    );
-    console.log("fauna feed count: ", faunaFeeds && faunaFeeds.length);
-  } catch(e) {console.log(e)}
+
   if (feeds && feeds.count() > 0) {
+    feeds.find().forEach(feed => {
+      client.query(q.Create(q.Collection("feeds"), {data: feed}))
+    });
     return true;
   }
   // If feeds not found in KV then recreate feeds and articles from defaults.
