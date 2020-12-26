@@ -71,12 +71,6 @@ export const maybeLoadDb = async (event) => {
   const user = users.findOne();
   user && console.log("timeStamp: ", user.timeStamp, " articleCount: ", articles.count());
 
-  if (feeds && feeds.count() > 0) {
-    feeds.find().forEach(feed => {
-      client.query(q.Create(q.Collection("feeds"), {data: feed}))
-    });
-    return true;
-  }
   // If feeds not found in KV then recreate feeds and articles from defaults.
   await Promise.all(defaultFeeds.map(insertNewFeedWithArticles));
   event.waitUntil(backupDb());
@@ -117,32 +111,7 @@ export const backupDb = () => {
 // can see different set of feeds and articles.  See the 'Feed.subscribers'
 // property placeholder.
 
-export const insertNewFeedWithArticles = async (feed) => {
-  const existingFeed = feeds.findOne({url: feed.url});
-  if (existingFeed) {
-    return existingFeed;
-  }
-  if (! feed._id) {
-    feed._id = uuidv4();
-  }
-  feed.request = fetchFeed(feed);
-  const feedResult = await readItems(feed);
-  articles.insert(prepareArticlesForDB(feedResult));
-  let feedForInsert = pick(feedResult, [
-    '_id',
-    'url',
-    'date',
-    'title',
-    'etag',
-    'lastModified'
-  ]);
-  feedForInsert.subscribers = ['nullUser'];
-  if (! isEmpty(feedResult.items)) {
-    feedForInsert.lastFetchedDate = (new Date()).getTime();
-  }
-  feeds.insert(feedForInsert);
-  return feedForInsert;
-}
+
 
 export const updateLastFetchedDate = (targetFeeds) => {
   targetFeeds.forEach(feed => {
