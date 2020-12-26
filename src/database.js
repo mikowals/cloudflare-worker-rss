@@ -9,12 +9,15 @@ import isEmpty from 'lodash.isempty'
 import loki from 'lokijs';
 import { yesterday } from './utils';
 import { v4 as uuidv4 } from 'uuid';
+import faunadb,{ query as q } from 'faunadb';
 
 let lokiDb = new loki("rss");
 
 export let articles;
 export let feeds;
 export let users;
+
+let client = null;
 
 const getCollection = ({name, unique, indices}) => {
   let collection = lokiDb.getCollection(name);
@@ -59,6 +62,10 @@ export const maybeLoadDb = async (event) => {
   if (jsonDb) {
     lokiDb.loadJSON(jsonDb)
   }
+  client = new faunadb.Client({
+    secret: GRAPHQL_SECRET_KEY,
+    fetch
+  });
   // initialize after db loaded from disk but before any use.
   initializeDb();
   const user = users.findOne();
@@ -66,7 +73,6 @@ export const maybeLoadDb = async (event) => {
   if (feeds && feeds.count() > 0) {
     return true;
   }
-
   // If feeds not found in KV then recreate feeds and articles from defaults.
   await Promise.all(defaultFeeds.map(insertNewFeedWithArticles));
   event.waitUntil(backupDb());
