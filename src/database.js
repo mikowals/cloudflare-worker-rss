@@ -136,9 +136,6 @@ export const insertNewFeedWithArticles = async (feed) => {
 
 export const updateLastFetchedDate = (targetFeeds) => {
   targetFeeds.forEach(feed => {
-    if (isEmpty(feed.items)) {
-      return;
-    }
     feed.lastFetchedDate = (new Date()).getTime();
     feeds.update(feed);
   });

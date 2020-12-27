@@ -85,7 +85,7 @@ export const readItems = async (feed) => {
   // HTMLRewriter outside of concurrent feed response leads to
   // overwriting and only the items of the first httpResponse being kept.
   const rewriter = new HTMLRewriter();
-  const dateHandler = new PubdateHandler(feed.lastFetchedDate);
+  const dateHandler = new PubdateHandler(feed.pubDate);
   const itemHandler = new ItemHandler(dateHandler);
   const truncatedResponse = rewriter
     .on('pubdate', dateHandler)
@@ -93,6 +93,7 @@ export const readItems = async (feed) => {
     .transform(httpResponse);
   const rssString = await truncatedResponse.text();
   const updatedFeed = await parser.parseString(rssString);
+  updatedFeed.date = updatedFeed.pubDate || feed.date;
   updatedFeed.etag = httpResponse.headers.etag
   updatedFeed.lastModified = httpResponse.headers["last-modified"];
   // Update url in case it has been redirected.

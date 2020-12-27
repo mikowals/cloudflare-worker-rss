@@ -79,6 +79,17 @@ async function handleRequest(event) {
   case "/__graphql":
       return playgroundHandler(request, {baseEndpoint: '/graphql'});
 
+  case "/feeds":
+    return new Response(
+      htmlBoilerPlate(
+        JSON.stringify(
+          feeds.find()
+        )
+      ), {
+        headers: { 'content-type': 'text/html' },
+      }
+    );
+
   default:
     return new Response(htmlBoilerPlate(
       JSON.stringify(
