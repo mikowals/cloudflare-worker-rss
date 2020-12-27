@@ -1,4 +1,4 @@
-import { Feed } from 'feed';
+import { Feed } from './feed';
 import {
   fetchRSS,
   parseFeed,
@@ -121,14 +121,7 @@ export const insertNewFeedWithArticles = async (newFeed) => {
   return feedForInsert;
 }
 
-export const updateLastFetchedDate = (targetFeeds) => {
-  targetFeeds.forEach(feed => {
-    feed.lastFetchedDate = (new Date()).getTime();
-    feeds.update(feed);
-  });
-}
-
-export const insertArticlesIfNew = async (newArticles) => {
+const insertArticlesIfNew = (newArticles) => {
   let insertedArticles = [];
   newArticles.forEach( article => {
     try {
@@ -137,4 +130,21 @@ export const insertArticlesIfNew = async (newArticles) => {
     } catch(e) {}
   });
   return insertedArticles;
+}
+
+export const updateFeedsAndInsertArticles = async (targetFeeds) => {
+  const feedsWithRequests = targetFeeds.map(feed => {
+    return {feed, responsePromise: fetchRSS(feed)}
+  });
+  const updatedFeeds = await Promise.all(feedsWithRequests.map(parseFeed));
+  const newArticles = updatedFeeds.flatMap(f => f.items)
+  targetFeeds.forEach((feed, ii) => {
+    const {date, etag, lastFetchedDate, lastModified} = updatedFeeds[ii];
+    feed.date = date;
+    feed.etag = etag;
+    feed.lastFetchedDate = lastFetchedDate;
+    feed.lastModified = lastModified;
+    feeds.update(feed);
+  });
+  return insertArticlesIfNew(newArticles);
 }

@@ -1,12 +1,10 @@
-import { fetchArticles } from './fetchRSS';
 import {
   articles,
   backupDb,
   feeds,
   users,
   maybeLoadDb,
-  insertArticlesIfNew,
-  updateLastFetchedDate
+  updateFeedsAndInsertArticles
 } from './database';
 import escape from 'lodash.escape';
 import { handler as graphqlHandler } from './handlers/graphql';
@@ -51,9 +49,7 @@ async function handleRequest(event) {
       .simplesort('lastFetchedDate')
       .limit(5)
       .data();
-    const newArticles = await fetchArticles(feedsForUpdate);
-    updateLastFetchedDate(feedsForUpdate);
-    let itemsInserted = await insertArticlesIfNew(newArticles);
+    let itemsInserted = await updateFeedsAndInsertArticles(feedsForUpdate);
     event.waitUntil(backupDb());
     console.timeEnd("fetchArticles");
     return new Response(
@@ -77,7 +73,7 @@ async function handleRequest(event) {
     return response
 
   case "/__graphql":
-      return playgroundHandler(request, {baseEndpoint: '/graphql'});
+    return playgroundHandler(request, {baseEndpoint: '/graphql'});
 
   case "/feeds":
     return new Response(

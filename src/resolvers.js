@@ -1,8 +1,7 @@
 import { articles, feeds } from './database';
 import {
   insertNewFeedWithArticles,
-  insertArticlesIfNew,
-  updateLastFetchedDate
+  updateFeedsAndInsertArticles
 } from './database';
 import pick from 'lodash.pick';
 import { countLoader } from './loaders';
@@ -56,9 +55,8 @@ export const resolvers = {
         .simplesort('lastFetchedDate')
         .limit(2)
         .data();
-      const newArticles = await fetchArticles(userFeeds);
-      updateLastFetchedDate(userFeeds);
-      return insertArticlesIfNew(newArticles);
+
+      return await updateFeedsAndInsertArticles(userFeeds);
     }
   },
 
