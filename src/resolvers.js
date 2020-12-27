@@ -2,7 +2,8 @@ import { articles, feeds } from './database';
 import {
   insertNewFeedWithArticles,
   insertArticlesIfNew,
-  updateLastFetchedDate
+  updateLastFetchedDate,
+  fetchArticlesByFeedIds,
 } from './database';
 import pick from 'lodash.pick';
 import { countLoader } from './loaders';
@@ -28,24 +29,24 @@ const articlesFromFeedIds = (feedIds) => {
 
 const feedsFromUserId = (userId) => {
   const result = feeds.find();
-  return result.map(feed => pick(feed, ['_id', 'title', 'url', 'date']));
+  return result.map(feed => pick(feed, ['id', 'title', 'url', 'date']));
 }
 
 export const resolvers = {
   Feed: {
-    count: ({_id}) => countLoader.load(_id)
+    count: ({id}) => countLoader.load(id)
   },
 
   Mutation: {
     // Rewrite so that feed is only removed per user
     removeFeed(parent, {id}, context, info) {
       articles.findAndRemove({feedId: id});
-      feeds.findAndRemove({_id: id});
-      return {_id: id};
+      feeds.findAndRemove({id: id});
+      return {id: id};
     },
 
-    addFeed(parent, {_id, url}, context, info) {
-      let feed = insertNewFeedWithArticles({_id, url});
+    addFeed(parent, {id, url}, context, info) {
+      let feed = insertNewFeedWithArticles({id, url});
       return feed;
     },
 
@@ -58,30 +59,32 @@ export const resolvers = {
   },
 
   User: {
-    feedList: ({_id}) => feeds.find().map(f => f._id),
-    //feeds: ({_id}) => feedsFromUserId(_id),
+    feedList: ({id}) => feeds.find().map(f => f.id),
+    //feeds: ({id}) => feedsFromUserId(id),
     //feeds: ({feedList}) => feedLoader.loadMany(feedList),
     //articles: ({feedList}) => articlesFromFeedIds(feedList)
   },
 
   Query: {
     //articles: (parent, {userId}, context, info) => articlesLoader.load(userId),
-    articles: (_, {userId}) => {
-      const feedList = feeds.find().map(f => f._id);
+    articles: async (_, {userId}) => {
+      const feedList = feeds.find().map(f => f.id);
       if (feedList.length === 0) {
         return [];
       }
-      const result = articlesFromFeedIds(feedList);
-      return result
+      console.time("fetchArticles");
+      const result = await fetchArticlesByFeedIds(feedList);
+      console.timeEnd("fetchArticles");
+      return result;
     },
 
-    feedIds: (_, {userId}) => feeds.find().map(f => f._id),
+    feedIds: (_, {userId}) => feeds.find().map(f => f.id),
     feeds: (_, {userId}) => feeds.find().map(f => {
-      return pick(f, ['_id', 'title', 'url', 'date', 'lastFetchedDate'])
+      return pick(f, ['id', 'title', 'url', 'date', 'lastFetchedDate'])
     }),
     //feeds: (_, {userId}) => feedLoader.load(userId),
     user: (_, {userId}) => {
-      return {_id: "nullUser", feedList: feeds.find().map(f => f._id)}
+      return {id: "nullUser", feedList: feeds.find().map(f => f.id)}
     }
   },
 };

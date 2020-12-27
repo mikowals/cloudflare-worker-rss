@@ -33,18 +33,18 @@ const getCollection = ({name, unique, indices}) => {
 const initializeDb = () => {
   articles = getCollection({
     name: "articles",
-    unique: ["_id", "link", "summary"],
+    unique: ["id", "link", "summary"],
     indices: ["date", "feedId"]
   });
   feeds = getCollection({
     name: "feeds",
-    unique: ["_id", "url"],
-    indices: ["_id", "url"]
+    unique: ["id", "url"],
+    indices: ["id", "url"]
   });
   users = getCollection({
     name: "users",
-    unique: ["_id"],
-    indices: ["_id"]
+    unique: ["id"],
+    indices: ["id"]
   });
 };
 
@@ -70,7 +70,9 @@ export const maybeLoadDb = async (event) => {
   initializeDb();
   const user = users.findOne();
   user && console.log("timeStamp: ", user.timeStamp, " articleCount: ", articles.count());
-
+  if (feeds && feeds.count() > 0){
+    return true;
+  }
   // If feeds not found in KV then recreate feeds and articles from defaults.
   await Promise.all(defaultFeeds.map(insertNewFeedWithArticles));
   event.waitUntil(backupDb());
@@ -79,14 +81,14 @@ export const maybeLoadDb = async (event) => {
 
 const logDetailsToDb = () => {
   const details = {
-    _id: "nullUser",
+    id: "nullUser",
     timeStamp: new Date().toUTCString(),
     articleCount: articles.count()
   };
   if (users.count() === 0) {
     users.insert(details);
   } else {
-    const user = users.findOne({_id: details._id})
+    const user = users.findOne({id: details.id})
     user.timeStamp = details.timeStamp;
     user.articleCount = details.articleCount;
     users.update(user);
@@ -114,15 +116,15 @@ export const backupDb = () => {
 export const insertNewFeedWithArticles = async (feed) => {
   const existingFeed = feeds.findOne({url: feed.url});
   if (existingFeed) {
-    //return existingFeed;
+    return existingFeed;
   }
   if (! feed.id) {
     feed.id = uuidv4();
   }
   feed.request = fetchFeed(feed);
   const feedResult = await readItems(feed);
-  const dbArticles = repareArticlesForDB(feedResult);
-  client.query(
+  const dbArticles = prepareArticlesForDB(feedResult);
+  await client.query(
     q.Map(
       dbArticles,
       q.Lambda(
@@ -130,7 +132,7 @@ export const insertNewFeedWithArticles = async (feed) => {
         q.Create(q.Collection("articles"), {data: q.Var("article")})
       )
     )
-  ).then(r => console.log(r)).catch(e => console.log(e));
+  );
   //articles.insert(dbArticles);
   let feedForInsert = pick(feedResult, [
     'id',
@@ -144,10 +146,9 @@ export const insertNewFeedWithArticles = async (feed) => {
   if (! isEmpty(feedResult.items)) {
     feedForInsert.lastFetchedDate = (new Date()).getTime();
   }
-  client.query(
+  await client.query(
     q.Create(q.Collection("feeds"), {data: feedForInsert})
-  ).then(r => console.log(r)).catch(e => console.log(e));
-
+  )
   //feeds.insert(feedForInsert);
   return feedForInsert;
 }
@@ -171,4 +172,15 @@ export const insertArticlesIfNew = async (newArticles) => {
     } catch(e) {}
   });
   return insertedArticles;
+}
+
+export const fetchArticlesByFeedIds = async (feedIds) => {
+  const { data } = await client.query(
+    q.Call(
+      q.Function('articles_search_by_feedId_sort_by_date_title'),
+      feedIds
+    )
+  )
+  console.log(JSON.stringify(data[0]));
+  return data;
 }

@@ -2,7 +2,7 @@ import { gql } from 'apollo-server-cloudflare';
 
 export const typeDefs = gql`
   type Article {
-    _id: String
+    id: String
     source: String
     date: Float
     title: String
@@ -12,7 +12,7 @@ export const typeDefs = gql`
   }
 
   type Feed {
-    _id: String
+    id: String
     title: String
     url: String
     date: Float
@@ -29,12 +29,12 @@ export const typeDefs = gql`
 
   type Mutation {
     removeFeed(id: String): Feed
-    addFeed(_id: String, url: String!): Feed
+    addFeed(id: String, url: String!): Feed
     getNewArticles(userId: String): [Article]
   }
 
   type User {
-    _id: String!
+    id: String!
     feedList: [String]
   }
 `;
