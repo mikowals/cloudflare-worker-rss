@@ -50,7 +50,12 @@ export const resolvers = {
     },
 
     getNewArticles: async (parent, {userId}) => {
-      const userFeeds = feeds.find({'subscribers': { '$contains' : "nullUser"}});
+      const userFeeds = feeds
+        .chain()
+        .find({'subscribers': { '$contains' : "nullUser"}})
+        .simplesort('lastFetchedDate')
+        .limit(2)
+        .data();
       const newArticles = await fetchArticles(userFeeds);
       updateLastFetchedDate(userFeeds);
       return insertArticlesIfNew(newArticles);

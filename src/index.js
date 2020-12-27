@@ -38,7 +38,9 @@ addEventListener('fetch', event => {
 
 async function handleRequest(event) {
   const { request } = event;
+  console.time("loadDBfromKV")
   await maybeLoadDb(event);
+  console.timeEnd("loadDBfromKV")
   const url = new URL(request.url);
   switch (url.pathname) {
 
@@ -63,13 +65,16 @@ async function handleRequest(event) {
     });
 
   case "/graphql":
+    console.time("graphQL request");
     const clone = await request.clone();
-    const response =
+    let response =
       request.method === 'OPTIONS'
         ? new Response('', { status: 204 })
         : await graphqlHandler(request);
+    console.timeEnd("graphQL request");
     event.waitUntil(isMutation(clone));
-    return setCorsHeaders(response);
+    response = setCorsHeaders(response);
+    return response
 
   case "/__graphql":
       return playgroundHandler(request, {baseEndpoint: '/graphql'});
