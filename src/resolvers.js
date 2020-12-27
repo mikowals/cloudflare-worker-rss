@@ -6,7 +6,7 @@ import {
 } from './database';
 import pick from 'lodash.pick';
 import { countLoader } from './loaders';
-import { fetchArticles } from './fetch-articles';
+import { fetchArticles } from './fetchRSS';
 
 const articlesFromFeedIds = (feedIds) => {
   const result = articles

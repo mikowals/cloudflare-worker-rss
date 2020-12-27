@@ -1,4 +1,4 @@
-import { fetchArticles } from './fetch-articles';
+import { fetchArticles } from './fetchRSS';
 import {
   articles,
   backupDb,

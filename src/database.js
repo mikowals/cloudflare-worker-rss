@@ -1,14 +1,14 @@
+import { Feed } from 'feed';
 import {
-  fetchFeed,
-  readItems,
+  fetchRSS,
+  parseFeed,
   prepareArticlesForDB,
   fetchArticles
-} from './fetch-articles';
+} from './fetchRSS';
 import pick from 'lodash.pick';
 import isEmpty from 'lodash.isempty'
 import loki from 'lokijs';
 import { yesterday } from './utils';
-import { v4 as uuidv4 } from 'uuid';
 
 let lokiDb = new loki("rss");
 
@@ -107,29 +107,16 @@ export const backupDb = () => {
 // can see different set of feeds and articles.  See the 'Feed.subscribers'
 // property placeholder.
 
-export const insertNewFeedWithArticles = async (feed) => {
-  const existingFeed = feeds.findOne({url: feed.url});
+export const insertNewFeedWithArticles = async (newFeed) => {
+  const existingFeed = feeds.findOne({url: newFeed.url});
   if (existingFeed) {
     return existingFeed;
   }
-  if (! feed._id) {
-    feed._id = uuidv4();
-  }
-  feed.request = fetchFeed(feed);
-  const feedResult = await readItems(feed);
-  articles.insert(prepareArticlesForDB(feedResult));
-  let feedForInsert = pick(feedResult, [
-    '_id',
-    'url',
-    'date',
-    'title',
-    'etag',
-    'lastModified'
-  ]);
-  feedForInsert.subscribers = ['nullUser'];
-  if (! isEmpty(feedResult.items)) {
-    feedForInsert.lastFetchedDate = (new Date()).getTime();
-  }
+  const feed = new Feed(newFeed);
+  const responsePromise = fetchRSS(feed);
+  const feedResult = await parseFeed({feed, responsePromise});
+  articles.insert(feedResult.items);
+  let feedForInsert = new Feed(feedResult, {keepItems: false});
   feeds.insert(feedForInsert);
   return feedForInsert;
 }

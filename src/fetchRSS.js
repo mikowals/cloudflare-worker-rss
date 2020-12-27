@@ -55,7 +55,7 @@ class ItemHandler {
   }
 }
 
-export const fetchFeed = ({url, _id, lastModified, etag}) => {
+export const fetchRSS = ({url, _id, lastModified, etag}) => {
   const headers = new Headers({
     "If-Modified-Since": lastModified,
     "If-None-Match": etag
@@ -68,12 +68,11 @@ export const fetchFeed = ({url, _id, lastModified, etag}) => {
   });
 }
 
-export const readItems = async (feed) => {
-  const self = this;
+export const parseFeed = async ({feed, responsePromise}) => {
   if (! feed._id) {
-    throw new Error("readItems requires feed with '_id'.")
+    throw new Error("parseFeed requires feed with '_id'.")
   }
-  const httpResponse = await feed.request;
+  const httpResponse = await responsePromise;
   if (httpResponse.status !== 200) {
     console.log("Feed at " + feed.url + " not fetched.");
     console.log("Returned status code " +  httpResponse.status + ".")
@@ -83,7 +82,8 @@ export const readItems = async (feed) => {
     feed.lastFetchedDate = yesterday();
   }
   // HTMLRewriter outside of concurrent feed response leads to
-  // overwriting and only the items of the first httpResponse being kept.
+  // overwriting and only the items of the first httpResponse
+  // to arrivebeing kept.
   const rewriter = new HTMLRewriter();
   const dateHandler = new PubdateHandler(feed.pubDate);
   const itemHandler = new ItemHandler(dateHandler);
@@ -93,6 +93,10 @@ export const readItems = async (feed) => {
     .transform(httpResponse);
   const rssString = await truncatedResponse.text();
   const updatedFeed = await parser.parseString(rssString);
+
+  // This is a mess.  I am blending data from the
+  // db feed, http response, and parsed rss.
+  updatedFeed.items = prepareArticlesForDB(updatedFeed)
   updatedFeed.date = updatedFeed.pubDate || feed.date;
   updatedFeed.etag = httpResponse.headers.etag
   updatedFeed.lastModified = httpResponse.headers["last-modified"];
@@ -104,15 +108,17 @@ export const readItems = async (feed) => {
 };
 
 export const fetchArticles = async (feeds) => {
-  const feedsWithRequests = feeds.map(f => {
-    f.request = fetchFeed(f);
-    return f;
+  const feedsWithRequests = feeds.map(feed => {
+    const responsePromise = fetchRSS(feed);
+    return {feed, responsePromise};
   })
-  const updatedFeeds = await Promise.all(feedsWithRequests.map(readItems));
-  return updatedFeeds.flatMap(prepareArticlesForDB);
+  const updatedFeeds = await Promise.all(feedsWithRequests.map(parseFeed));
+  return updatedFeeds.items;
 };
 
-export const prepareArticlesForDB = (feed) => {
+// Loop articles again to parse into the format the db expects.
+// This needs feed info along with article info.
+const prepareArticlesForDB = (feed) => {
   if (isEmpty(feed.items)) {
     return [];
   }
