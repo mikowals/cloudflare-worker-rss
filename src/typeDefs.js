@@ -31,6 +31,7 @@ export const typeDefs = gql`
     removeFeed(id: String): Feed
     addFeed(_id: String, url: String!): Feed
     getNewArticles(userId: String): [Article]
+    removeOldArticles: Boolean
   }
 
   type User {

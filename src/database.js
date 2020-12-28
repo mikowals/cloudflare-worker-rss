@@ -2,8 +2,6 @@ import { Feed } from './feed';
 import {
   fetchRSS,
   parseFeed,
-  prepareArticlesForDB,
-  fetchArticles
 } from './fetchRSS';
 import pick from 'lodash.pick';
 import isEmpty from 'lodash.isempty'

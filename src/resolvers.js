@@ -5,7 +5,7 @@ import {
 } from './database';
 import pick from 'lodash.pick';
 import { countLoader } from './loaders';
-import { fetchArticles } from './fetchRSS';
+import { yesterday } from './utils'
 
 const articlesFromFeedIds = (feedIds) => {
   const result = articles
@@ -57,6 +57,10 @@ export const resolvers = {
         .data();
 
       return await updateFeedsAndInsertArticles(userFeeds);
+    },
+    removeOldArticles() {
+      articles.chain().find({date: {"$jlt": yesterday()}}).remove();
+      return true;
     }
   },
 

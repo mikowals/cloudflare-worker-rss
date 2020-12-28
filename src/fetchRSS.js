@@ -78,14 +78,14 @@ export const parseFeed = async ({feed, responsePromise}) => {
     console.log("Returned status code " +  httpResponse.status + ".")
     return feed;
   }
-  if (yesterday() > feed.lastFetchedDate) {
-    feed.lastFetchedDate = yesterday();
+  if (yesterday() > feed.date) {
+    feed.date = yesterday();
   }
   // HTMLRewriter outside of concurrent feed response leads to
   // overwriting and only the items of the first httpResponse
   // to arrivebeing kept.
   const rewriter = new HTMLRewriter();
-  const dateHandler = new PubdateHandler(feed.pubDate);
+  const dateHandler = new PubdateHandler(feed.date);
   const itemHandler = new ItemHandler(dateHandler);
   const truncatedResponse = rewriter
     .on('pubDate', dateHandler)
@@ -96,26 +96,18 @@ export const parseFeed = async ({feed, responsePromise}) => {
 
   // This is a mess.  I am blending data from the
   // db feed, http response, and parsed rss.
-  updatedFeed.items = prepareArticlesForDB(updatedFeed)
-  updatedFeed.date = new Date(
+
+  feed.items = updatedFeed.items
+  feed.items = prepareArticlesForDB(feed)
+  feed.date = new Date(
     updatedFeed.pubDate || updatedFeed.lastBuildDate
   ).getTime();
-  updatedFeed.etag = httpResponse.headers.etag
-  updatedFeed.lastModified = httpResponse.headers["last-modified"];
+  feed.etag = httpResponse.headers.etag
+  feed.lastModified = httpResponse.headers["last-modified"];
   // Update url in case it has been redirected.
-  updatedFeed.url = updatedFeed.feedUrl || feed.url;
-  updatedFeed._id = feed._id;
-  updatedFeed.lastFetchedDate = new Date().getTime();
-  return updatedFeed;
-};
-
-export const fetchArticles = async (feeds) => {
-  const feedsWithRequests = feeds.map(feed => {
-    const responsePromise = fetchRSS(feed);
-    return {feed, responsePromise};
-  })
-  const updatedFeeds = await Promise.all(feedsWithRequests.map(parseFeed));
-  return updatedFeeds.flatMap(feed => feed.items);
+  feed.url = updatedFeed.feedUrl || feed.url;
+  feed.lastFetchedDate = new Date().getTime();
+  return feed;
 };
 
 // Loop articles again to parse into the format the db expects.
