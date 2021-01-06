@@ -36,9 +36,9 @@ addEventListener('fetch', event => {
 
 async function handleRequest(event) {
   const { request } = event;
-  console.time("loadDBfromKV")
+  //console.time("loadDBfromKV")
   await maybeLoadDb(event);
-  console.timeEnd("loadDBfromKV")
+  //console.timeEnd("loadDBfromKV")
   const url = new URL(request.url);
   switch (url.pathname) {
 

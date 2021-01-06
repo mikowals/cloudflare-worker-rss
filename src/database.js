@@ -34,21 +34,21 @@ const initializeDb = () => {
   feeds = getCollection({
     name: "feeds",
     unique: ["_id", "url"],
-    indices: ["_id", "url"]
+    indices: []
   });
   users = getCollection({
     name: "users",
     unique: ["_id"],
-    indices: ["_id"]
+    indices: []
   });
 };
 
 const defaultFeeds = [
-  {url: "http://feeds.bbci.co.uk/news/education/rss.xml"},
+  //{url: "http://feeds.bbci.co.uk/news/education/rss.xml"},
   {url: "https://www.abc.net.au/news/feed/51120/rss.xml"},
-  {url: "http://feeds.bbci.co.uk/news/world/rss.xml"},
-  {url: "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml"},
-  {url: "http://scripting.com/rss.xml"}
+  //{url: "http://feeds.bbci.co.uk/news/world/rss.xml"},
+  //{url: "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml"},
+  //{url: "http://scripting.com/rss.xml"}
 ];
 
 export const maybeLoadDb = async (event) => {
@@ -59,12 +59,11 @@ export const maybeLoadDb = async (event) => {
   }
   // initialize after db loaded from disk but before any use.
   initializeDb();
-  const user = users.findOne();
-  user && console.log("timeStamp: ", user.timeStamp, " articleCount: ", articles.count());
+  //const user = users.findOne();
+  //user && console.log("timeStamp: ", user.timeStamp, " articleCount: ", user.articleCount);
   if (feeds && feeds.count() > 0) {
     return true;
   }
-
   // If feeds not found in KV then recreate feeds and articles from defaults.
   await Promise.all(defaultFeeds.map(insertNewFeedWithArticles));
   event.waitUntil(backupDb());
@@ -75,14 +74,16 @@ const logDetailsToDb = () => {
   const details = {
     _id: "nullUser",
     timeStamp: new Date().toUTCString(),
-    articleCount: articles.count()
+    articleCount: articles.count(),
+    feedList: feeds.find().map(f => f._id)
   };
   if (users.count() === 0) {
     users.insert(details);
   } else {
-    const user = users.findOne({_id: details._id})
+    const user = users.by("_id", details._id)
     user.timeStamp = details.timeStamp;
     user.articleCount = details.articleCount;
+    user.feedList = details.feedList;
     users.update(user);
   }
 }
@@ -106,16 +107,18 @@ export const backupDb = () => {
 // property placeholder.
 
 export const insertNewFeedWithArticles = async (newFeed) => {
-  const existingFeed = feeds.findOne({url: newFeed.url});
+  const existingFeed = feeds.by("url", newFeed.url);
   if (existingFeed) {
     return existingFeed;
   }
-  const feed = new Feed(newFeed);
+  console.log("feed doesn't exist. creating.");
+  const feed = new Feed(newFeed, {keepItems: false});
   const responsePromise = fetchRSS(feed);
   const feedResult = await parseFeed({feed, responsePromise});
-  articles.insert(feedResult.items);
+  insertArticlesIfNew(feedResult.items);
   let feedForInsert = new Feed(feedResult, {keepItems: false});
   feeds.insert(feedForInsert);
+  console.log("inserted: ", JSON.stringify(feedForInsert));
   return feedForInsert;
 }
 

@@ -96,7 +96,7 @@ export const parseFeed = async ({feed, responsePromise}) => {
 
   // This is a mess.  I am blending data from the
   // db feed, http response, and parsed rss.
-
+  feed.title = updatedFeed.title;
   feed.items = updatedFeed.items
   feed.items = prepareArticlesForDB(feed)
   feed.date = new Date(

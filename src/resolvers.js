@@ -1,4 +1,4 @@
-import { articles, feeds } from './database';
+import { articles, feeds, users } from './database';
 import {
   insertNewFeedWithArticles,
   updateFeedsAndInsertArticles
@@ -74,7 +74,8 @@ export const resolvers = {
   Query: {
     //articles: (parent, {userId}, context, info) => articlesLoader.load(userId),
     articles: (_, {userId}) => {
-      const feedList = feeds.find().map(f => f._id);
+      const user = users.by("_id", "nullUser");
+      const feedList = (user && user.feedList) || feeds.find().map(f => f._id);
       if (feedList.length === 0) {
         return [];
       }
