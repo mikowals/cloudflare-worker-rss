@@ -1,5 +1,6 @@
 import Parser from 'rss-parser';
 import { Article } from './article';
+import { createFeed } from './feed';
 import { yesterday } from './utils';
 import isEmpty from 'lodash.isEmpty';
 
@@ -55,7 +56,7 @@ class ItemHandler {
   }
 }
 
-export const fetchRSS = ({url, _id, lastModified, etag}) => {
+export const fetchRSS = ({url, lastModified, etag}) => {
   const headers = new Headers({
     "If-Modified-Since": lastModified,
     "If-None-Match": etag
@@ -69,9 +70,6 @@ export const fetchRSS = ({url, _id, lastModified, etag}) => {
 }
 
 export const parseFeed = async ({feed, responsePromise}) => {
-  if (! feed._id) {
-    throw new Error("parseFeed requires feed with '_id'.")
-  }
   const httpResponse = await responsePromise;
   if (httpResponse.status !== 200) {
     console.log("Feed at " + feed.url + " not fetched.");
@@ -92,29 +90,17 @@ export const parseFeed = async ({feed, responsePromise}) => {
     .on('item', itemHandler)
     .transform(httpResponse);
   const rssString = await truncatedResponse.text();
-  const updatedFeed = await parser.parseString(rssString);
-
-  // This is a mess.  I am blending data from the
-  // db feed, http response, and parsed rss.
-  feed.title = updatedFeed.title;
-  feed.items = updatedFeed.items
-  feed.items = prepareArticlesForDB(feed)
-  feed.date = new Date(
-    updatedFeed.pubDate || updatedFeed.lastBuildDate
-  ).getTime();
-  feed.etag = httpResponse.headers.etag
-  feed.lastModified = httpResponse.headers["last-modified"];
-  // Update url in case it has been redirected.
-  feed.url = updatedFeed.feedUrl || feed.url;
-  feed.lastFetchedDate = new Date().getTime();
-  return feed;
+  const fetchedFeed = await parser.parseString(rssString);
+  return createFeed({
+    _id: feed._id,
+    $loki: feed.$loki,
+    date: fetchedFeed.pubDate || fetchedFeed.lastBuildDate,
+    etag: httpResponse.headers.etag,
+    items: fetchedFeed.items,
+    lastFetchedDate: new Date().getTime(),
+    lastModified: httpResponse.headers["last-modified"],
+    meta: feed.meta || {},
+    title: fetchedFeed.title || feed.title,
+    url: fetchedFeed.feedUrl || feed.url
+  });
 };
-
-// Loop articles again to parse into the format the db expects.
-// This needs feed info along with article info.
-const prepareArticlesForDB = (feed) => {
-  if (isEmpty(feed.items)) {
-    return [];
-  }
-  return feed.items.map(item => new Article(item, feed));
-}

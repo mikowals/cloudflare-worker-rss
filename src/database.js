@@ -1,4 +1,3 @@
-import { Feed } from './feed';
 import {
   fetchRSS,
   parseFeed,
@@ -106,30 +105,29 @@ export const backupDb = () => {
 // can see different set of feeds and articles.  See the 'Feed.subscribers'
 // property placeholder.
 
-export const insertNewFeedWithArticles = async (newFeed) => {
-  const existingFeed = feeds.by("url", newFeed.url);
+export const insertNewFeedWithArticles = async ({url}) => {
+  const existingFeed = feeds.by("url", url);
   if (existingFeed) {
     return existingFeed;
   }
   console.log("feed doesn't exist. creating.");
-  const feed = new Feed(newFeed, {keepItems: false});
-  const responsePromise = fetchRSS(feed);
-  const feedResult = await parseFeed({feed, responsePromise});
-  insertArticlesIfNew(feedResult.items);
-  let feedForInsert = new Feed(feedResult, {keepItems: false});
-  feeds.insert(feedForInsert);
-  console.log("inserted: ", JSON.stringify(feedForInsert));
-  return feedForInsert;
+  const responsePromise = fetchRSS({url});
+  const feed = await parseFeed({url, responsePromise});
+  insertArticlesIfNew(feed.items);
+  delete feed.items;
+  feeds.insert(feed);
+  return feed;
 }
 
 const insertArticlesIfNew = (newArticles) => {
   let insertedArticles = [];
-  newArticles.forEach( article => {
+  for (let ii = 0; ii < newArticles.length; ii++) {
     try {
+      const article = newArticles[ii];
       articles.insert(article);
-      insertedArticles = [...insertedArticles, article];
+      insertedArticles.push(article);
     } catch(e) {}
-  });
+  }
   return insertedArticles;
 }
 
@@ -139,12 +137,8 @@ export const updateFeedsAndInsertArticles = async (targetFeeds) => {
   });
   const updatedFeeds = await Promise.all(feedsWithRequests.map(parseFeed));
   const newArticles = updatedFeeds.flatMap(f => f.items)
-  targetFeeds.forEach((feed, ii) => {
-    const {date, etag, lastFetchedDate, lastModified} = updatedFeeds[ii];
-    feed.date = date;
-    feed.etag = etag;
-    feed.lastFetchedDate = lastFetchedDate;
-    feed.lastModified = lastModified;
+  updatedFeeds.forEach( feed => {
+    delete feed.items;
     feeds.update(feed);
   });
   return insertArticlesIfNew(newArticles);

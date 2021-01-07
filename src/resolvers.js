@@ -49,9 +49,13 @@ export const resolvers = {
     },
 
     getNewArticles: async (parent, {userId}) => {
+      const user = users.by("_id", userId || "nullUser");
+      if (! user) {
+        return [];
+      }
       const userFeeds = feeds
         .chain()
-        .find({'subscribers': { '$contains' : "nullUser"}})
+        .find({'_id': { '$in' : user.feedList}})
         .simplesort('lastFetchedDate')
         .limit(2)
         .data();
