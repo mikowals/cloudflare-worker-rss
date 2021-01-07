@@ -1,6 +1,4 @@
 import Parser from 'rss-parser';
-import { Article } from './article';
-import { createFeed } from './feed';
 import { yesterday } from './utils';
 import isEmpty from 'lodash.isEmpty';
 
@@ -56,7 +54,7 @@ class ItemHandler {
   }
 }
 
-export const fetchRSS = ({url, lastModified, etag}) => {
+const fetchRSS = ({url, lastModified, etag}) => {
   const headers = new Headers({
     "If-Modified-Since": lastModified,
     "If-None-Match": etag
@@ -69,38 +67,33 @@ export const fetchRSS = ({url, lastModified, etag}) => {
   });
 }
 
-export const parseFeed = async ({feed, responsePromise}) => {
-  const httpResponse = await responsePromise;
+export const parseFeed = async ({url, date}) => {
+  console.time("fetching " + url);
+  const httpResponse = await fetchRSS({url});
+  console.timeEnd("fetching " + url);
   if (httpResponse.status !== 200) {
-    console.log("Feed at " + feed.url + " not fetched.");
+    console.log("Feed at " + url + " not fetched.");
     console.log("Returned status code " +  httpResponse.status + ".")
-    return feed;
+    return {url, date};
   }
-  if (yesterday() > feed.date) {
-    feed.date = yesterday();
+  if (! date || yesterday() > date) {
+    date = yesterday();
   }
   // HTMLRewriter outside of concurrent feed response leads to
   // overwriting and only the items of the first httpResponse
   // to arrivebeing kept.
+  console.time("parsing " + url);
   const rewriter = new HTMLRewriter();
-  const dateHandler = new PubdateHandler(feed.date);
+  const dateHandler = new PubdateHandler(date);
   const itemHandler = new ItemHandler(dateHandler);
   const truncatedResponse = rewriter
     .on('pubDate', dateHandler)
     .on('item', itemHandler)
     .transform(httpResponse);
   const rssString = await truncatedResponse.text();
-  const fetchedFeed = await parser.parseString(rssString);
-  return createFeed({
-    _id: feed._id,
-    $loki: feed.$loki,
-    date: fetchedFeed.pubDate || fetchedFeed.lastBuildDate,
-    etag: httpResponse.headers.etag,
-    items: fetchedFeed.items,
-    lastFetchedDate: new Date().getTime(),
-    lastModified: httpResponse.headers["last-modified"],
-    meta: feed.meta || {},
-    title: fetchedFeed.title || feed.title,
-    url: fetchedFeed.feedUrl || feed.url
-  });
+  let fetchedFeed = await parser.parseString(rssString);
+  fetchedFeed.etag = httpResponse.headers.etag;
+  fetchedFeed.lastModified = httpResponse.headers["last-modified"];
+  console.timeEnd("parsing " + url);
+  return fetchedFeed;
 };

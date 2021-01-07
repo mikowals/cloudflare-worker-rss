@@ -1,7 +1,5 @@
-import {
-  fetchRSS,
-  parseFeed,
-} from './fetchRSS';
+import { updateFeedAfterFetch } from './feed';
+import { parseFeed } from './fetchRSS';
 import pick from 'lodash.pick';
 import isEmpty from 'lodash.isempty'
 import loki from 'lokijs';
@@ -19,8 +17,8 @@ const getCollection = ({name, unique, indices}) => {
     console.log(name, " not found. Adding collection.");
     return lokiDb.addCollection(name, {unique, indices});
   }
-  unique.forEach(key => collection.ensureUniqueIndex(key));
-  indices.forEach(key => collection.ensureIndex(key));
+  //unique.forEach(key => collection.ensureUniqueIndex(key));
+  //indices.forEach(key => collection.ensureIndex(key));
   return collection;
 }
 
@@ -44,9 +42,9 @@ const initializeDb = () => {
 
 const defaultFeeds = [
   //{url: "http://feeds.bbci.co.uk/news/education/rss.xml"},
-  {url: "https://www.abc.net.au/news/feed/51120/rss.xml"},
+  //{url: "https://www.abc.net.au/news/feed/51120/rss.xml"},
   //{url: "http://feeds.bbci.co.uk/news/world/rss.xml"},
-  //{url: "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml"},
+  {url: "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml"},
   //{url: "http://scripting.com/rss.xml"}
 ];
 
@@ -110,9 +108,7 @@ export const insertNewFeedWithArticles = async ({url}) => {
   if (existingFeed) {
     return existingFeed;
   }
-  console.log("feed doesn't exist. creating.");
-  const responsePromise = fetchRSS({url});
-  const feed = await parseFeed({url, responsePromise});
+  let feed = updateFeedAfterFetch({url}, await parseFeed({url}));
   insertArticlesIfNew(feed.items);
   delete feed.items;
   feeds.insert(feed);
@@ -132,14 +128,20 @@ const insertArticlesIfNew = (newArticles) => {
 }
 
 export const updateFeedsAndInsertArticles = async (targetFeeds) => {
-  const feedsWithRequests = targetFeeds.map(feed => {
-    return {feed, responsePromise: fetchRSS(feed)}
+
+  let updatedFeeds = targetFeeds.map(async feed => {
+    return updateFeedAfterFetch(feed, await parseFeed(feed));
   });
-  const updatedFeeds = await Promise.all(feedsWithRequests.map(parseFeed));
-  const newArticles = updatedFeeds.flatMap(f => f.items)
-  updatedFeeds.forEach( feed => {
-    delete feed.items;
-    feeds.update(feed);
-  });
-  return insertArticlesIfNew(newArticles);
+
+  let insertedArticles = await Promise.all(
+    updatedFeeds.map(async feedPromise => {
+      let feed = await feedPromise;
+      const items = feed.items;
+      delete feed.items;
+      feeds.update(feed);
+      return insertArticlesIfNew(items);
+    })
+  );
+
+  return insertedArticles.flat();
 }

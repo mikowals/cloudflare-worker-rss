@@ -40,6 +40,10 @@ export const resolvers = {
     removeFeed(parent, {id}, context, info) {
       articles.findAndRemove({feedId: id});
       feeds.findAndRemove({_id: id});
+      let user = users.by("_id", "nullUser")
+      let idx = user.feedList.indexOf(null);
+      user.feedList = user.feedList.splice(idx, 1);
+      users.update(user);
       return {_id: id};
     },
 
