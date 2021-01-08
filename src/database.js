@@ -17,8 +17,8 @@ const getCollection = ({name, unique, indices}) => {
     console.log(name, " not found. Adding collection.");
     return lokiDb.addCollection(name, {unique, indices});
   }
-  //unique.forEach(key => collection.ensureUniqueIndex(key));
-  //indices.forEach(key => collection.ensureIndex(key));
+  unique.forEach(key => collection.ensureUniqueIndex(key));
+  indices.forEach(key => collection.ensureIndex(key));
   return collection;
 }
 
@@ -62,7 +62,13 @@ export const maybeLoadDb = async (event) => {
     return true;
   }
   // If feeds not found in KV then recreate feeds and articles from defaults.
-  await Promise.all(defaultFeeds.map(insertNewFeedWithArticles));
+  await Promise.all(
+    defaultFeeds.map(async feed => {
+      Feed.maybeAddId(feed);
+      await Feed.fetch(feed);
+      return Feed.insert(feed);
+    })
+  );
   event.waitUntil(backupDb());
   return true;
 }
@@ -85,7 +91,7 @@ const logDetailsToDb = () => {
   }
 }
 
-//
+// Each db mutation needs to get to kv.
 export const backupDb = () => {
   logDetailsToDb();
   console.log("running backup")
@@ -94,54 +100,3 @@ export const backupDb = () => {
     RSS.put("jsonDb", json).then(resolved);
   });
 };
-
-// Fetch RSS feed details from a given URL and populate Loki with both
-// the RSS feed and articles.  These could be separated but as fetching the
-// URL will always return the articles too, just insert both.
-
-// XXX Fix this to work with a 'users' database so that different users
-// can see different set of feeds and articles.  See the 'Feed.subscribers'
-// property placeholder.
-
-export const insertNewFeedWithArticles = async ({url}) => {
-  const existingFeed = feeds.by("url", url);
-  if (existingFeed) {
-    return existingFeed;
-  }
-  let feed = updateFeedAfterFetch({url}, await parseFeed({url}));
-  insertArticlesIfNew(feed.items);
-  delete feed.items;
-  feeds.insert(feed);
-  return feed;
-}
-
-const insertArticlesIfNew = (newArticles) => {
-  let insertedArticles = [];
-  for (let ii = 0; ii < newArticles.length; ii++) {
-    try {
-      const article = newArticles[ii];
-      articles.insert(article);
-      insertedArticles.push(article);
-    } catch(e) {}
-  }
-  return insertedArticles;
-}
-
-export const updateFeedsAndInsertArticles = async (targetFeeds) => {
-
-  let updatedFeeds = targetFeeds.map(async feed => {
-    return updateFeedAfterFetch(feed, await parseFeed(feed));
-  });
-
-  let insertedArticles = await Promise.all(
-    updatedFeeds.map(async feedPromise => {
-      let feed = await feedPromise;
-      const items = feed.items;
-      delete feed.items;
-      feeds.update(feed);
-      return insertArticlesIfNew(items);
-    })
-  );
-
-  return insertedArticles.flat();
-}

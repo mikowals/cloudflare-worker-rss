@@ -1,47 +1,17 @@
 import { Article } from './article';
+import { articles, feeds } from './database';
+import { fetchRSS } from './fetchRSS';
+import pick from 'lodash.pick';
 import { v4 as uuidv4 } from 'uuid';
 
-// Makes sure feed has an `_id` and `items` are suitiable for db.
-// Currently separation of concerns is poor as '$loki' and 'meta' are  kept
-// for lokijs collection update while fetchRSS.js does mapping from rss
-// result to this function.
-// This could have a 'subscribers' property as a db denormalization.
+export let Feed = {};
 
-const createFeed = ({
-    _id = uuidv4(),
-    date,
-    etag,
-    items,
-    lastFetchedDate = 0,
-    lastModified,
-    title,
-    url
-  } = {}) => {
-    let feed = {
-      _id,
-      date: new Date(date || 0).getTime(),
-      etag,
-      items: prepareArticlesForDb(items, _id, title),
-      lastFetchedDate,
-      lastModified,
-      title,
-      url
-    };
-    // 'items' processed here to make sure we have the '_id' already.
-
-    return feed;
-  }
-
-export const updateFeedAfterFetch = (feed, fetchedFeed) => {
-  const _id = feed._id || uuidv4();
-  const items = prepareArticlesForDb(
-    fetchedFeed.items, _id, fetchedFeed.title
-  );
+Feed.fetch = async function(feed) {
+  const fetchedFeed = await fetchRSS(feed);
   const updates = {
-    _id
     date: new Date(fetchedFeed.pubDate || fetchedFeed.lastBuildDate).getTime(),
     etag: fetchedFeed.etag,
-    items,
+    items: fetchedFeed.items,
     lastFetchedDate: new Date().getTime(),
     lastModified: fetchedFeed.lastModified,
     title: fetchedFeed.title,
@@ -50,12 +20,39 @@ export const updateFeedAfterFetch = (feed, fetchedFeed) => {
   return Object.assign(feed, updates);
 }
 
-const prepareArticlesForDb = (items, _id, title) => {
-  let articles = [];
-  if (Array.isArray(items)) {
-    for (let ii = 0; ii < items.length; ii++) {
-      articles.push(new Article(items[ii], {_id, title}))
-    }
+Feed.insert = function(feed) {
+  Array.isArray(feed.items) && Feed.insertArticles(feed);
+  return Object.assign(feed, feeds.insert(feed))
+}
+
+Feed.insertArticles = function(feed) {
+  if (! feed._id){
+    throw new Error(
+      "Feed.insertArticles requires '_id' on feed.  Got: " +
+      JSON.stringify(feed)
+    );
   }
+  let insertedArticles = [];
+  for (let ii = 0; ii < feed.items.length; ii++) {
+    try {
+      const article = new Article(feed.items[ii], feed);
+      articles.insert(article);
+      insertedArticles.push(article);
+    } catch(e) {}
+  }
+  delete feed.items;
+  return insertedArticles;
+};
+
+Feed.maybeAddId = function(feed) {
+  if (! feed._id) {
+    feed._id = uuidv4();
+  }
+  return feed;
+}
+
+Feed.update = function(feed) {
+  const articles = Array.isArray(feed.items) ? Feed.insertArticles(feed) : [];
+  Object.assign(feed, feeds.update(feed));
   return articles;
 }

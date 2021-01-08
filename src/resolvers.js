@@ -1,8 +1,5 @@
 import { articles, feeds, users } from './database';
-import {
-  insertNewFeedWithArticles,
-  updateFeedsAndInsertArticles
-} from './database';
+import { Feed } from './feed';
 import pick from 'lodash.pick';
 import { countLoader } from './loaders';
 import { yesterday } from './utils'
@@ -30,6 +27,16 @@ const feedsFromUserId = (userId) => {
   return result.map(feed => pick(feed, ['_id', 'title', 'url', 'date']));
 }
 
+const updateFeeds = async (targetFeeds) => {
+  let insertedArticles = await Promise.all(
+    targetFeeds.map(async feed => {
+      await Feed.fetch(feed);
+      return Feed.update(feed);
+    })
+  );
+  return insertedArticles.flat();
+}
+
 export const resolvers = {
   Feed: {
     count: ({_id}) => countLoader.load(_id)
@@ -47,9 +54,14 @@ export const resolvers = {
       return {_id: id};
     },
 
-    addFeed(parent, {_id, url}, context, info) {
-      let feed = insertNewFeedWithArticles({_id, url});
-      return feed;
+    addFeed: async (parent, {_id, url}, context, info) => {
+      let existingFeed = feed.by('url', url)
+      if (existingFeed) {
+        return existingFeed;
+      }
+      let feed = Feed.maybeAddId({_id, url});
+      await Feed.fetch(feed);
+      return Feed.insert(feed);;
     },
 
     getNewArticles: async (parent, {userId}) => {
@@ -64,8 +76,9 @@ export const resolvers = {
         .limit(2)
         .data();
 
-      return await updateFeedsAndInsertArticles(userFeeds);
+      return await updateFeeds(userFeeds);
     },
+
     removeOldArticles() {
       articles.chain().find({date: {"$jlt": yesterday()}}).remove();
       return true;
