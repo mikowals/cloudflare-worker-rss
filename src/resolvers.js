@@ -80,8 +80,9 @@ export const resolvers = {
     },
 
     removeOldArticles() {
+      const originalArticleCount = articles.count();
       articles.chain().find({date: {"$jlt": yesterday()}}).remove();
-      return true;
+      return originalArticleCount - articles.count();
     }
   },
 
