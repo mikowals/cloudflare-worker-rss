@@ -3,7 +3,7 @@ import {
   backupDb,
   feeds,
   users,
-  maybeLoadDb,
+  loadDb,
   updateFeedsAndInsertArticles
 } from './database';
 import escape from 'lodash.escape';
@@ -36,29 +36,9 @@ addEventListener('fetch', event => {
 
 async function handleRequest(event) {
   const { request } = event;
-  console.time("loadDBfromKV")
-  await maybeLoadDb(event);
-  console.timeEnd("loadDBfromKV")
+  await loadDb(event);
   const url = new URL(request.url);
   switch (url.pathname) {
-
-  case "/pollFeeds":
-    console.time("fetchArticles");
-    const feedsForUpdate = feeds
-      .chain()
-      .simplesort('lastFetchedDate')
-      .limit(5)
-      .data();
-    let itemsInserted = await updateFeedsAndInsertArticles(feedsForUpdate);
-    event.waitUntil(backupDb());
-    console.timeEnd("fetchArticles");
-    return new Response(
-      htmlBoilerPlate(
-        "Inserted " +  itemsInserted.length + " new articles in database.\n" +
-        JSON.stringify({summary: "<a href='http://scripting.com'>test</a>"})
-      ), {
-        headers: { 'content-type': 'text/html' },
-    });
 
   case "/graphql":
     console.time("graphQL request");

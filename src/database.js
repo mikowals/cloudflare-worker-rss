@@ -41,33 +41,28 @@ const initializeDb = () => {
 };
 
 const defaultFeeds = [
-  //{url: "http://feeds.bbci.co.uk/news/education/rss.xml"},
-  //{url: "https://www.abc.net.au/news/feed/51120/rss.xml"},
-  //{url: "http://feeds.bbci.co.uk/news/world/rss.xml"},
-  {url: "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml"},
-  //{url: "http://scripting.com/rss.xml"}
+  //"http://feeds.bbci.co.uk/news/education/rss.xml",
+  //"https://www.abc.net.au/news/feed/51120/rss.xml",
+  //"http://feeds.bbci.co.uk/news/world/rss.xml",
+  "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml",
+  //"http://scripting.com/rss.xml"
 ];
 
-export const maybeLoadDb = async (event) => {
-  // Try to reflate lokijs from kv storage
+export const loadDb = async (event) => {
+  // Each request must get database from KV because another worker instance
+  // may have run a mutation.
   const jsonDb = await RSS.get('jsonDb');
   if (jsonDb) {
     lokiDb.loadJSON(jsonDb)
   }
   // initialize after db loaded from disk but before any use.
   initializeDb();
-  //const user = users.findOne();
-  //user && console.log("timeStamp: ", user.timeStamp, " articleCount: ", user.articleCount);
   if (feeds && feeds.count() > 0) {
     return true;
   }
   // If feeds not found in KV then recreate feeds and articles from defaults.
   await Promise.all(
-    defaultFeeds.map(async feed => {
-      Feed.maybeAddId(feed);
-      await Feed.fetch(feed);
-      return Feed.insert(feed);
-    })
+    defaultFeeds.map(async feed => Feed.createFromURL(feed.url))
   );
   event.waitUntil(backupDb());
   return true;

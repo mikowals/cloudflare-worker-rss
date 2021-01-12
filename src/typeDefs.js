@@ -29,9 +29,10 @@ export const typeDefs = gql`
 
   type Mutation {
     removeFeed(id: String): Feed
-    addFeed(_id: String, url: String!): Feed
+    addFeed(url: String!): Feed
     getNewArticles(userId: String): [Article]
     removeOldArticles: Int
+    resetAllFeedDates: Boolean
   }
 
   type User {

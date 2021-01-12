@@ -30,8 +30,8 @@ const feedsFromUserId = (userId) => {
 const updateFeeds = async (targetFeeds) => {
   let insertedArticles = await Promise.all(
     targetFeeds.map(async feed => {
-      await Feed.fetch(feed);
-      return Feed.update(feed);
+      const fetchedFeed = await Feed.fetch(feed);
+      return Feed.update(fetchedFeed);
     })
   );
   return insertedArticles.flat();
@@ -54,14 +54,12 @@ export const resolvers = {
       return {_id: id};
     },
 
-    addFeed: async (parent, {_id, url}, context, info) => {
+    addFeed: async (parent, {url}, context, info) => {
       let existingFeed = feed.by('url', url)
       if (existingFeed) {
         return existingFeed;
       }
-      let feed = Feed.maybeAddId({_id, url});
-      await Feed.fetch(feed);
-      return Feed.insert(feed);;
+      return Feed.createFromURL(url);
     },
 
     getNewArticles: async (parent, {userId}) => {
@@ -83,6 +81,15 @@ export const resolvers = {
       const originalArticleCount = articles.count();
       articles.chain().find({date: {"$jlt": yesterday()}}).remove();
       return originalArticleCount - articles.count();
+    },
+
+    resetAllFeedDates() {
+      const newDate = yesterday();
+      feeds.find().forEach(feed => {
+        feed.date = newDate;
+        Feed.update(feed);
+      });
+      return true;
     }
   },
 

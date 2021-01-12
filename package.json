@@ -24,6 +24,7 @@
     "lodash.flatmap": "^4.5.0",
     "lodash.groupby": "^4.6.0",
     "lodash.isempty": "^4.4.0",
+    "lodash.omit": "^4.5.0",
     "lodash.pick": "^4.4.0",
     "lodash.unescape": "^4.0.1",
     "lokijs": "^1.5.11",

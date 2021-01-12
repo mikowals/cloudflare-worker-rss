@@ -2,15 +2,11 @@ import Parser from 'rss-parser';
 import { yesterday } from './utils';
 import isEmpty from 'lodash.isEmpty';
 
-export const fetchRSS = async ({date, etag, lastModified, url}) => {
-  const headers = new Headers({
-    "If-Modified-Since": lastModified,
-    "If-None-Match": etag
-  });
-  const httpResponse = await fetch(new Request(url, {headers}),{
+export const fetchRSS = async ({date, url}) => {
+  const httpResponse = await fetch(new Request(url),{
     cf: {
       cacheEverything: true,
-      cacheTtlByStatus: {'200-299': 1200, 404: 1, '500-599': 0}
+      cacheTtlByStatus: {'200-299': 600, 404: 1, '500-599': 0}
     }
   });
   if (httpResponse.status !== 200) {
@@ -37,8 +33,6 @@ const parseFeed = async (httpResponse, limitDate) => {
     .transform(httpResponse);
   const rssString = await truncatedResponse.text();
   let fetchedFeed = await parser.parseString(rssString);
-  fetchedFeed.etag = httpResponse.headers.etag;
-  fetchedFeed.lastModified = httpResponse.headers["last-modified"];
   return fetchedFeed;
 };
 
