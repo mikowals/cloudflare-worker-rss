@@ -1,9 +1,8 @@
 import { updateFeedAfterFetch } from './feed';
 import { parseFeed } from './fetchRSS';
-import pick from 'lodash.pick';
-import isEmpty from 'lodash.isempty'
 import loki from 'lokijs';
 import { yesterday } from './utils';
+import { pick, isEmpty } from 'lodash';
 
 let lokiDb = new loki("rss");
 

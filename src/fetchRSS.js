@@ -1,8 +1,8 @@
 import Parser from 'rss-parser';
 import { yesterday } from './utils';
-import isEmpty from 'lodash.isEmpty';
+import { isEmpty } from 'lodash';
 
-export const fetchRSS = async ({date, url}) => {
+export const fetchRSS = async ({url}) => {
   const httpResponse = await fetch(new Request(url),{
     cf: {
       cacheEverything: true,
@@ -12,12 +12,9 @@ export const fetchRSS = async ({date, url}) => {
   if (httpResponse.status !== 200) {
     console.log("Feed at " + url + " not fetched.");
     console.log("Returned status code " +  httpResponse.status + ".")
-    return {url, date};
+    return {url};
   }
-  if (! date || yesterday() > date) {
-    date = yesterday();
-  }
-  return await parseFeed(httpResponse, date)
+  return await parseFeed(httpResponse, yesterday())
 }
 
 const parseFeed = async (httpResponse, limitDate) => {

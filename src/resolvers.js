@@ -1,8 +1,8 @@
 import { articles, feeds, users } from './database';
 import { Feed } from './feed';
-import pick from 'lodash.pick';
 import { countLoader } from './loaders';
 import { yesterday } from './utils'
+import { pick } from 'lodash';
 
 const articlesFromFeedIds = (feedIds) => {
   const result = articles
@@ -55,11 +55,12 @@ export const resolvers = {
     },
 
     addFeed: async (parent, {url}, context, info) => {
-      let existingFeed = feed.by('url', url)
+      let existingFeed = feeds.by('url', url)
       if (existingFeed) {
         return existingFeed;
       }
-      return Feed.createFromURL(url);
+      const newFeed = Feed.createFromURL(url)
+      return newFeed
     },
 
     getNewArticles: async (parent, {userId}) => {

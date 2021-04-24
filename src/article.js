@@ -1,9 +1,7 @@
 import trimHTML from 'trim-html';
-import assignIn from 'lodash.assignin';
-import unescape from 'lodash.unescape';
-import escape from 'lodash.escape';
 import sanitizeHtml from 'sanitize-html';
 import { v4 as uuidv4 } from 'uuid';
+import { assignIn, unescape, escape } from 'lodash';
 
 export class Article {
   constructor({

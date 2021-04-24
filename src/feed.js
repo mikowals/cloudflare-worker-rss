@@ -1,9 +1,8 @@
 import { Article } from './article';
 import { articles, feeds } from './database';
 import { fetchRSS } from './fetchRSS';
-import omit from 'lodash.omit';
-import pick from 'lodash.pick';
 import { v4 as uuidv4 } from 'uuid';
+import { omit, pick } from 'lodash';
 
 /**
 * Feed - a dictionary of helper functions to deal with feed objects.

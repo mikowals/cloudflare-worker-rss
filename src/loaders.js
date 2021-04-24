@@ -1,6 +1,6 @@
 import DataLoader from 'dataloader';
 import { articles, feeds } from './database';
-import groupBy from 'lodash.groupby';
+import { groupBy } from 'lodash';
 
 export const countLoader = new DataLoader(async (keys) => {
   countLoader.clearAll();
