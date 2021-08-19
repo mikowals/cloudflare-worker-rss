@@ -1,11 +1,10 @@
-# 👷 `worker-template` Hello World
+# An RSS parsing backend to serve graphql requests.
 
-A template for kick starting a Cloudflare worker project.
+Fast GraphQL backend to provide RSS data to subscribers. It uses Cloudflare's worker platform to handle requests and store data. Users receive browser responses in 30-70ms.
 
-[`index.js`](https://github.com/cloudflare/worker-template/blob/master/index.js) is the content of the Workers script.
+The code is running at https://worker-rss.mikowals.workers.dev/__graphql with a graphql gui to send requests and see responses.
 
-#### Wrangler
-
+You can download the code and run yourself with wrangler and a cloudflare account described below.
 To generate using [wrangler](https://github.com/cloudflare/wrangler)
 
 ```
