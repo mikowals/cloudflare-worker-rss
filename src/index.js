@@ -12,12 +12,17 @@ import { escape, some } from 'lodash';
 
 const isMutation = async (request) => {
   const json = await request.json();
-  if (! Array.isArray(json)) {
-    json = [json]
+  let needsBackup = null;
+  if (Array.isArray(json)) {
+    needsBackup = some(json, j => j.query.slice(0,8) === 'mutation')
+  } else {
+    needsBackup = json.query.slice(0,8) === 'mutation';
   }
-  if (some(json, j => j.query.slice(0,8) === 'mutation')) {
+
+  if (needsBackup) {
     return backupDb();
   }
+
   return true;
 }
 
@@ -82,11 +87,13 @@ const setCorsHeaders = (response, origin, config=true) => {
   const allowedOrigins = [
     "127.0.0.1:8787",
     "127.0.0.1:3000",
-    ".simple-rss-next.pages.dev",
+    "127.0.0.1",
+    "localhost",
+    "simple-rss-next.pages.dev",
     ".mikowals.workers.dev"
   ]
   let allowedOrigin = ""
-  if (some(allowedOrigins, o => origin.includes(o))) {
+  if (! origin || some(allowedOrigins, o => origin.includes(o))) {
     allowedOrigin = origin
   }
 
