@@ -1,11 +1,12 @@
+.cargo-ok
+.DS_Store
+**/*.rs.bk
 /target
 /dist
-**/*.rs.bk
 Cargo.lock
 bin/
+node_modules/
 pkg/
 wasm-pack.log
 worker/
-node_modules/
-.cargo-ok
 wrangler.toml
