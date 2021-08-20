@@ -5,6 +5,7 @@ export const typeDefs = gql`
     _id: String
     source: String
     date: Float
+    image: String
     title: String
     link: String
     summary: String
@@ -23,20 +24,20 @@ export const typeDefs = gql`
   type Query {
     articles(userId: String!): [Article]!
     feeds(userId: String!): [Feed]!
-    feedIds(userId: String!): [String]
+    feedIds(userId: String!): [String]!
     user(userId: String!): User
   }
 
   type Mutation {
     removeFeed(id: String!): Feed
     addFeed(url: String!): Feed
-    getNewArticles(userId: String!): [Article]
+    getNewArticles(userId: String!): [Article]!
     removeOldArticles: Int
     resetAllFeedDates: Boolean
   }
 
   type User {
     _id: String!
-    feedList: [String]
+    feedList: [String]!
   }
 `;
