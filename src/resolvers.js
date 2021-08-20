@@ -14,12 +14,14 @@ const articlesFromFeedIds = (feedIds) => {
 
   return result.map( article => pick(article, [
     '_id',
-    'title',
-    'source',
-    'link',
     'date',
+    'feedId',
+    'image',
+    'link',
+    'source',
     'summary',
-    'feedId']));
+    'title',
+    ]));
 }
 
 const feedsFromUserId = (userId) => {
@@ -72,7 +74,7 @@ export const resolvers = {
         .chain()
         .find({'_id': { '$in' : user.feedList}})
         .simplesort('lastFetchedDate')
-        .limit(2)
+        .limit(4)
         .data();
 
       return await updateFeeds(userFeeds);

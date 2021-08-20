@@ -39,6 +39,7 @@ const parser = new Parser({
       ['author', 'author'],
       ['description', 'summary'],
       ['pubDate', 'date'],
+      ['media:group', 'media'],
     ]
   }
 });
