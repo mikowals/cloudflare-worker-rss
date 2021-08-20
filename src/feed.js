@@ -3,6 +3,7 @@ import { articles, feeds } from './database';
 import { fetchRSS } from './fetchRSS';
 import { v4 as uuidv4 } from 'uuid';
 import { omit, pick } from 'lodash';
+import { ApolloError } from 'apollo-server-errors';
 
 /**
 * Feed - a dictionary of helper functions to deal with feed objects.
@@ -26,6 +27,13 @@ Feed.createFromURL = async function(url) {
 
 Feed.fetch = async function(feed) {
   const fetchedFeed = await fetchRSS(feed);
+  if (! fetchedFeed.title) {
+    throw new ApolloError(
+      `${feed.url} could not be added because no RSS data was found at that URL.`,
+      'FEED_FETCH_ERROR',
+      feed
+    );
+  }
   const customProperties = {
     date: new Date(fetchedFeed.pubDate || fetchedFeed.lastBuildDate).getTime(),
     lastFetchedDate: new Date().getTime()
@@ -55,8 +63,7 @@ Feed.insert = function(feed) {
 Feed.insertArticles = function(feed) {
   if (! feed._id){
     throw new Error(
-      "Feed.insertArticles requires '_id' on feed.  Got: " +
-      JSON.stringify(feed)
+      `Feed.insertArticles requires '_id' on feed.  Got: ${JSON.stringify(feed)}`
     );
   }
   let insertedArticles = [];
