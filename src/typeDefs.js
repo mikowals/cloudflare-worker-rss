@@ -21,6 +21,11 @@ export const typeDefs = gql`
     lastFetchedDate: Float
   }
 
+  type AddFeedResult {
+    feed: Feed
+    articles: [Article]!
+  }
+
   type Query {
     articles(userId: String!): [Article]!
     feeds(userId: String!): [Feed]!
@@ -30,7 +35,7 @@ export const typeDefs = gql`
 
   type Mutation {
     removeFeed(id: String!): Feed
-    addFeed(url: String!): Feed
+    addFeed(url: String!): AddFeedResult!
     getNewArticles(userId: String!): [Article]!
     removeOldArticles: Int
     resetAllFeedDates: Boolean

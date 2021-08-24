@@ -47,8 +47,11 @@ Feed.fetch = async function(feed) {
 }
 
 Feed.insert = function(feed) {
-  Array.isArray(feed.items) && Feed.insertArticles(feed);
-  return feeds.insert(omit(feed, ['items']));
+  const articles = (Array.isArray(feed.items) && Feed.insertArticles(feed)) || [];
+  return {
+    feed: feeds.insert(omit(feed, ['items'])), 
+    articles
+  };
 }
 
 /**

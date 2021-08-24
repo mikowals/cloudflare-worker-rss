@@ -59,10 +59,12 @@ export const resolvers = {
     addFeed: async (parent, {url}, context, info) => {
       let existingFeed = feeds.by('url', url)
       if (existingFeed) {
-        return existingFeed;
+        return {
+          feed: existingFeed,
+          articles: articlesFromFeedIds([existingFeed._id])
+        };
       }
-      const newFeed = Feed.createFromURL(url)
-      return newFeed
+      return Feed.createFromURL(url);
     },
 
     getNewArticles: async (parent, {userId}) => {
@@ -111,8 +113,7 @@ export const resolvers = {
       if (feedList.length === 0) {
         return [];
       }
-      const result = articlesFromFeedIds(feedList);
-      return result
+      return articlesFromFeedIds(feedList); 
     },
 
     feedIds: (_, {userId}) => feeds.find().map(f => f._id),
