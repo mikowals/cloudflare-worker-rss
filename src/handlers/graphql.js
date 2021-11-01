@@ -11,6 +11,7 @@ const createServer = () =>
   })
 
 export const handler = (request) => {
-  const server = createServer()
+  const server = createServer();
+  server.start();
   return graphqlCloudflare(() => server.createGraphQLServerOptions(request))(request);
 }
