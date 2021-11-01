@@ -1,16 +1,19 @@
-import { updateFeedAfterFetch } from './feed';
-import { parseFeed } from './fetchRSS';
 import loki from 'lokijs';
-import { yesterday } from './utils';
-import { pick, isEmpty } from 'lodash';
-
 let lokiDb = new loki("rss");
 
-export let articles;
-export let feeds;
-export let users;
+export let articles: any;
+export let feeds: any;
+export let users: any;
+declare var RSS: any;
+declare var Feed: any;
 
-const getCollection = ({name, unique, indices}) => {
+interface GetCollectionInput {
+  name: string, 
+  unique: string[], 
+  indices: string[],
+};
+
+const getCollection = ({name, unique, indices}: GetCollectionInput) => {
   let collection = lokiDb.getCollection(name);
   if (collection === null) {
     console.log(name, " not found. Adding collection.");
@@ -47,7 +50,7 @@ const defaultFeeds = [
   //"http://scripting.com/rss.xml"
 ];
 
-export const loadDb = async (event) => {
+export const loadDb = async (event: FetchEvent) => {
   // Each request must get database from KV because another worker instance
   // may have run a mutation.
   const jsonDb = await RSS.get('jsonDb');
@@ -61,7 +64,7 @@ export const loadDb = async (event) => {
   }
   // If feeds not found in KV then recreate feeds and articles from defaults.
   await Promise.all(
-    defaultFeeds.map(async feed => Feed.createFromURL(feed.url))
+    defaultFeeds.map(feed => Feed.createFromURL(feed))
   );
   event.waitUntil(backupDb());
   return true;
@@ -72,7 +75,7 @@ const logDetailsToDb = () => {
     _id: "nullUser",
     timeStamp: new Date().toUTCString(),
     articleCount: articles.count(),
-    feedList: feeds.find().map(f => f._id)
+    feedList: feeds.find().map((f: {_id: string}) => f._id)
   };
   if (users.count() === 0) {
     users.insert(details);

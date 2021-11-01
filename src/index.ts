@@ -2,15 +2,13 @@ import {
   articles,
   backupDb,
   feeds,
-  users,
   loadDb,
-  updateFeedsAndInsertArticles
 } from './database';
 import { handler as graphqlHandler } from './handlers/graphql';
 import { handler as playgroundHandler } from './handlers/playground';
 import { escape, some } from 'lodash';
 
-const isMutation = async (request) => {
+const isMutation = async (request: Request) => {
   const json = await request.json();
   let needsBackup = null;
   if (Array.isArray(json)) {
@@ -26,7 +24,7 @@ const isMutation = async (request) => {
   return true;
 }
 
-const htmlBoilerPlate = (body) => {
+const htmlBoilerPlate = (body: string) => {
   return "<!doctype html>               \
   <html lang='en'>                      \
     <head>                              \
@@ -36,11 +34,11 @@ const htmlBoilerPlate = (body) => {
     <body>" + body + "</body> </html>";
 }
 
-addEventListener('fetch', event => {
+addEventListener('fetch', (event: FetchEvent) => {
   event.respondWith(handleRequest(event));
 })
 
-async function handleRequest(event) {
+async function handleRequest(event: FetchEvent): Promise<Response> {
   const { request } = event;
   await loadDb(event);
   const url = new URL(request.url);
@@ -48,15 +46,15 @@ async function handleRequest(event) {
 
   case "/graphql":
     console.time("graphQL request");
-    const clone = await request.clone();
-    let response =
+    const clone = request.clone();
+    let response: Response =
       request.method === 'OPTIONS'
         ? new Response(null, { status: 204 })
         : await graphqlHandler(request);
     console.timeEnd("graphQL request");
     event.waitUntil(isMutation(clone));
-    response = setCorsHeaders(response, request.headers.get('origin'));
-    return response
+    response = setCorsHeaders(response, request.headers.get('origin') || '');
+    return response;
 
   case "/__graphql":
     return playgroundHandler(request, {baseEndpoint: '/graphql'});
@@ -68,8 +66,8 @@ async function handleRequest(event) {
           feeds.find()
         )
       ), {
-        headers: { 'content-type': 'text/html' },
-      }
+      headers: { 'content-type': 'text/html' },
+    }
     );
 
   default:
@@ -83,7 +81,15 @@ async function handleRequest(event) {
 }
 
 
-const setCorsHeaders = (response, origin, config=true) => {
+const setCorsHeaders = (
+  response: any, 
+  origin: string, 
+  config?: {
+    allowCredentials?: string,
+    allowHeaders?: string,
+    allowMethods?: string,
+    allowOrigin?: string,
+  }) => {
   const allowedOrigins = [
     "127.0.0.1:8787",
     "127.0.0.1:3000",
@@ -92,27 +98,26 @@ const setCorsHeaders = (response, origin, config=true) => {
     "simple-rss-next.pages.dev",
     ".mikowals.workers.dev"
   ]
-  let allowedOrigin = ""
+  let allowedOrigin = '';
   if (! origin || some(allowedOrigins, o => origin.includes(o))) {
     allowedOrigin = origin
   }
 
-  const corsConfig = config instanceof Object ? config : false
   response.headers.set(
     'Access-Control-Allow-Credentials',
-    corsConfig ? corsConfig.allowCredentials : 'true',
+    config && config.allowCredentials || 'true',
   )
   response.headers.set(
     'Access-Control-Allow-Headers',
-    corsConfig ? corsConfig.allowHeaders : 'Content-Type',
+    config && config.allowHeaders || 'Content-Type',
   )
   response.headers.set(
     'Access-Control-Allow-Methods',
-    corsConfig ? corsConfig.allowMethods : 'GET, POST, OPTIONS',
+    config && config.allowMethods || 'GET, POST, OPTIONS',
   )
   response.headers.set(
     'Access-Control-Allow-Origin',
-    corsConfig ? corsConfig.allowOrigin : allowedOrigin,
+    config && config.allowOrigin || allowedOrigin,
   )
   response.headers.set('X-Content-Type-Options', 'nosniff')
   return response;

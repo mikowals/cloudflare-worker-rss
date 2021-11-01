@@ -1,6 +1,7 @@
 import { gql } from 'apollo-server-cloudflare';
+import { DocumentNode, GraphQLSchema } from 'graphql';
 
-export const typeDefs = gql`
+export const typeDefs: DocumentNode = gql`
   type Article {
     _id: String
     source: String

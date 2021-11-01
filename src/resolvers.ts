@@ -4,7 +4,7 @@ import { countLoader } from './loaders';
 import { yesterday } from './utils'
 import { pick } from 'lodash';
 
-const articlesFromFeedIds = (feedIds) => {
+const articlesFromFeedIds = (feedIds: string[]) => {
   const result = articles
     .chain()
     .find({'feedId': {'$in': feedIds}})
@@ -12,7 +12,7 @@ const articlesFromFeedIds = (feedIds) => {
     .limit(40)
     .data();
 
-  return result.map( article => pick(article, [
+  return result.map( (article: any) => pick(article, [
     '_id',
     'date',
     'feedId',
@@ -24,14 +24,14 @@ const articlesFromFeedIds = (feedIds) => {
     ]));
 }
 
-const feedsFromUserId = (userId) => {
+const feedsFromUserId = (userId: string) => {
   const result = feeds.find();
-  return result.map(feed => pick(feed, ['_id', 'title', 'url', 'date']));
+  return result.map((feed: any) => pick(feed, ['_id', 'title', 'url', 'date']));
 }
 
-const updateFeeds = async (targetFeeds) => {
+const updateFeeds = async (targetFeeds: any) => {
   let insertedArticles = await Promise.all(
-    targetFeeds.map(async feed => {
+    targetFeeds.map(async (feed: any) => {
       const fetchedFeed = await Feed.fetch(feed);
       return Feed.update(fetchedFeed);
     })
@@ -41,12 +41,12 @@ const updateFeeds = async (targetFeeds) => {
 
 export const resolvers = {
   Feed: {
-    count: ({_id}) => countLoader.load(_id)
+    count: ({_id}: {_id: string}) => countLoader.load(_id)
   },
 
   Mutation: {
     // Rewrite so that feed is only removed per user
-    removeFeed(parent, {id}, context, info) {
+    removeFeed(parent: any, {id} : {id: any}, context: any, info: any) {
       articles.findAndRemove({feedId: id});
       feeds.findAndRemove({_id: id});
       let user = users.by("_id", "nullUser")
@@ -56,7 +56,7 @@ export const resolvers = {
       return {_id: id};
     },
 
-    addFeed: async (parent, {url}, context, info) => {
+    addFeed: async (parent: any, {url}: any, context: any, info: any) => {
       let existingFeed = feeds.by('url', url)
       if (existingFeed) {
         return {
@@ -67,7 +67,7 @@ export const resolvers = {
       return Feed.createFromURL(url);
     },
 
-    getNewArticles: async (parent, {userId}) => {
+    getNewArticles: async (parent: any, {userId}: {userId: string}) => {
       const user = users.by("_id", userId || "nullUser");
       if (! user) {
         return [];
@@ -90,7 +90,7 @@ export const resolvers = {
 
     resetAllFeedDates() {
       const newDate = yesterday();
-      feeds.find().forEach(feed => {
+      feeds.find().forEach((feed: any) => {
         feed.date = newDate;
         Feed.update(feed);
       });
@@ -99,7 +99,7 @@ export const resolvers = {
   },
 
   User: {
-    feedList: ({_id}) => feeds.find().map(f => f._id),
+    feedList: ({_id}: {_id: string}) => feeds.find().map((f: {_id: string}) => f._id),
     //feeds: ({_id}) => feedsFromUserId(_id),
     //feeds: ({feedList}) => feedLoader.loadMany(feedList),
     //articles: ({feedList}) => articlesFromFeedIds(feedList)
@@ -107,22 +107,22 @@ export const resolvers = {
 
   Query: {
     //articles: (parent, {userId}, context, info) => articlesLoader.load(userId),
-    articles: (_, {userId}) => {
+    articles: (_: any, {userId}: {userId: string}) => {
       const user = users.by("_id", "nullUser");
-      const feedList = (user && user.feedList) || feeds.find().map(f => f._id);
+      const feedList = (user && user.feedList) || feeds.find().map((f: {_id: string}) => f._id);
       if (feedList.length === 0) {
         return [];
       }
       return articlesFromFeedIds(feedList); 
     },
 
-    feedIds: (_, {userId}) => feeds.find().map(f => f._id),
-    feeds: (_, {userId}) => feeds.find().map(f => {
+    feedIds: (_: any, {userId}: {userId: string}) => feeds.find().map((f: {_id: string}) => f._id),
+    feeds: (_: any, {userId}: {userId: string}) => feeds.find().map((f: any) => {
       return pick(f, ['_id', 'title', 'url', 'date', 'lastFetchedDate'])
     }),
     //feeds: (_, {userId}) => feedLoader.load(userId),
-    user: (_, {userId}) => {
-      return {_id: "nullUser", feedList: feeds.find().map(f => f._id)}
+    user: (_: any, {userId}: {userId: string}) => {
+      return {_id: "nullUser", feedList: feeds.find().map((f: {_id: string}) => f._id)}
     }
   },
 };

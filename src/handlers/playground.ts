@@ -1,4 +1,4 @@
-const html = baseEndpoint => `
+const html = (baseEndpoint: string) => `
 <!DOCTYPE html>
 <html>
   <head>
@@ -489,4 +489,4 @@ const html = baseEndpoint => `
 `
 
 const headers = { 'Content-Type': 'text/html' }
-export const handler = (request, { baseEndpoint }) => new Response(html(baseEndpoint), { headers })
+export const handler = (request: Request, { baseEndpoint }: {baseEndpoint: string}) => new Response(html(baseEndpoint), { headers })

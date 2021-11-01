@@ -1,8 +1,7 @@
 import Parser from 'rss-parser';
 import { yesterday } from './utils';
-import { isEmpty } from 'lodash';
 
-export const fetchRSS = async ({url}) => {
+export const fetchRSS = async ({url}: {url: string}) => {
   const httpResponse = await fetch(new Request(url),{
     cf: {
       cacheEverything: true,
@@ -14,10 +13,10 @@ export const fetchRSS = async ({url}) => {
     console.log("Returned status code " +  httpResponse.status + ".")
     return {url};
   }
-  return await parseFeed(httpResponse, yesterday())
-}
+  return await parseFeed(httpResponse, yesterday());
+};
 
-const parseFeed = async (httpResponse, limitDate) => {
+const parseFeed = async (httpResponse: Response, limitDate: number) => {
   // HTMLRewriter outside of concurrent feed response leads to
   // overwriting and only the items of the first httpResponse
   // to arrive are kept.
@@ -45,13 +44,17 @@ const parser = new Parser({
 });
 
 class PubdateHandler {
-  constructor(keepLimitDate) {
-    this.keepLimitDate = keepLimitDate;
-    this.dropItems = false;
+  keepLimitDate: number;
+  dropItems: boolean;
+  dateText: string;
+
+  constructor(limitDate: number, dropItems?: boolean) {
+    this.keepLimitDate = limitDate;
+    this.dropItems = !!dropItems;
     this.dateText = '';
   }
 
-  text(text) {
+  text(text: Text) {
     if (! this.dropItems) {
       this.dateText += text.text;
       if (text.lastInTextNode){
@@ -66,29 +69,22 @@ class PubdateHandler {
 }
 
 class ItemHandler {
-  constructor(pubdateHandler) {
+  dropItems: () => boolean;
+  dropped: number;
+  kept: number;
+
+  constructor(pubdateHandler: PubdateHandler) {
     this.dropItems = () => pubdateHandler.dropItems;
     this.dropped = 0;
     this.kept = 0;
   }
 
-  element(item) {
+  element(item: Element) {
     if (this.dropItems()) {
       item.remove();
       this.dropped++;
     } else {
       this.kept++;
     }
-  }
-
-  log(id) {
-    console.log(
-      "PubdateHandler - ",
-      id,
-      " kept: ",
-      this.kept,
-      " dropped: ",
-      this.dropped
-    )
   }
 }
